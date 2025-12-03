@@ -1,1 +1,2 @@
-../learning/Memory.py
+#learning/Memory.py
+from learning.Memory import Memory
