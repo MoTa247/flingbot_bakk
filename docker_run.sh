@@ -1,5 +1,5 @@
 export FLINGBOT_PATH=${PWD}
-nvidia-docker run \
+docker run \
     --name flingbot-container \
 	-v $FLINGBOT_PATH:/workspace/flingbot \
 	--gpus all \

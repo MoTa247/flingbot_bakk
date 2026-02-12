@@ -6,7 +6,9 @@
 # Ubuntu 18.04 liefert GLIBC 2.27 → neuere Installer erfordern 2.28+.
 ################################################################################
 
+# 12.02.2026 - Tanja Moser - Cuda/Ubuntu zu alt für VS Studio
 FROM nvidia/cudagl:9.2-devel-ubuntu18.04
+#FROM nvidia/cudagl:12.3.2-devel-ubuntu22.04
 
 ################################################################################
 # SYSTEM-DEPENDENCIES
