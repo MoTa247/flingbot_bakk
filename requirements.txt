@@ -8,3 +8,7 @@ torchvision==0.5.0
 tensorboardX
 pybind11==2.4.3
 opencv-python==4.1.1.26
+scipy>=1.5
+matplotlib>=3.3
+imageio>=2.9
+OpenEXR>=1.3.9

@@ -8,7 +8,16 @@
 
 # 12.02.2026 - Tanja Moser - Cuda/Ubuntu zu alt für VS Studio
 FROM nvidia/cudagl:9.2-devel-ubuntu18.04
+#FROM nvidia/cudagl:10.1-devel-ubuntu18.04
 #FROM nvidia/cudagl:12.3.2-devel-ubuntu22.04
+
+
+
+################################################################################
+# NICHT-INTERAKTIVE INSTALLATION (verhindert apt Dialoge)
+################################################################################
+
+ENV DEBIAN_FRONTEND=noninteractive
 
 ################################################################################
 # SYSTEM-DEPENDENCIES
@@ -23,6 +32,8 @@ RUN apt-get update \
      cmake build-essential libgl1-mesa-dev freeglut3-dev libglfw3-dev libgles2-mesa-dev \
      openexr wget bzip2 ca-certificates curl \
      libopenexr-dev \
+     # libsdl2-2.0-0   # <-- benötigt für PyFlex Runtime (import pyflex)# libsdl2-2.0-0   # <-- benötigt für PyFlex Runtime (import pyflex) # neues Image aber erst nach dem 17.3.26 \
+    # libilmbase-dev   # benötigt für Python OpenEXR bindings
   && rm -rf /var/lib/apt/lists/*
 
 ################################################################################
@@ -82,6 +93,24 @@ ENV PATH=$CONDA_DIR/bin:$PATH
 # KORREKTE LÖSUNG:
 RUN echo "Conda remains at base version (4.9.2) – no update performed due to GLIBC & memory limits"
 
+
+
+################################################################################
+# OPENEXR (für SoftGym / PyFlex Rendering)              wsl jetzt nicht nötig/möglich wegen glib>=2.28
+# ------------------------------------------------------------------------------
+# Wird über conda installiert, damit IlmBase / ABI korrekt aufeinander abgestimmt sind.
+# Versionen sind gepinnt → reproduzierbarer Docker-Build ohne Solver-Probleme.
+################################################################################
+
+################################################################################
+#OpenEXR könnte im Dockerfile später zu Problemen führen, da Updates erfolgt sind:
+#conda -> 22.9.0     libstdcxx/libgcc -> neuere Toolchain   openexr ->3.1.11
+################################################################################
+
+# RUN conda install -y -c conda-forge \
+#     openexr=3.1.11 \
+#     openexr-python=1.3.9 \
+#     imath=3.1.9
 ################################################################################
 # ALIASING VON CONDA → MAMBA
 # -------------------------------------------------------
@@ -111,6 +140,48 @@ RUN echo ". $CONDA_DIR/etc/profile.d/conda.sh" >> /etc/bash.bashrc
 
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
+
+#####Hinzugefügt#####
+
+################################################################################
+# PYTHON / TORCH INSTALLATION
+# ------------------------------------------------------------------------------
+# Wir benutzen pip innerhalb der Base-Environment.
+# Torch 1.4 ist die letzte stabile CUDA 9.2 kompatible Version.
+################################################################################
+
+RUN pip install --upgrade pip setuptools wheel
+
+# Torch MUSS VOR requirements installiert werden
+RUN pip install torch==1.4.0 torchvision==0.5.0
+
+
+################################################################################
+# REQUIREMENTS INSTALLIEREN (Docker Cache optimiert)
+# ------------------------------------------------------------------------------
+# Nur requirements.txt kopieren → schneller Rebuild bei Codeänderungen
+################################################################################
+
+COPY requirements.txt .
+
+RUN pip install -r requirements.txt
+
+
+################################################################################
+# RESTLICHES PROJEKT KOPIEREN
+################################################################################
+
+COPY . .
+
+
+################################################################################
+# Python Logging sofort anzeigen (kein Buffering)
+################################################################################
+
+ENV PYTHONUNBUFFERED=1
+
+
+####bis hier    25.02.2026####
 
 ################################################################################
 # DEFAULT COMMAND

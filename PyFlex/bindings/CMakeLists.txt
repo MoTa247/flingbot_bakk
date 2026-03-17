@@ -41,4 +41,6 @@ target_link_libraries(${EXAMPLE_BIN} PRIVATE ${ROOT}/lib/linux64/NvFlexReleaseCU
 target_link_libraries(${EXAMPLE_BIN} PRIVATE ${ROOT}/external/SDL2-2.0.4/lib/x64/libSDL2-2.0.so.0.4.0)
 target_link_libraries(${EXAMPLE_BIN} PRIVATE ${ROOT}/external/SDL2-2.0.4/lib/x64/libSDL2.a)
 target_link_libraries(${EXAMPLE_BIN} PRIVATE ${CUDA_LIBRARIES})
+target_link_libraries(${EXAMPLE_BIN} PRIVATE "-Wl,--no-as-needed" /usr/local/cuda-9.2/lib64/libcudart.so)
+
 
