@@ -30,13 +30,16 @@ RUN apt-get update \
      openexr wget bzip2 ca-certificates curl \
      libopenexr-dev \
      #neues Image ab 1.44.2026
-     libsdl2-2.0-0  \ # <-- benötigt für PyFlex Runtime (import pyflex)
-     libilmbase-dev  # <-- benötigt für Python OpenEXR bindings
+     libsdl2-2.0-0  \ 
+     # <-- benötigt für PyFlex Runtime (import pyflex)
+     libilmbase-dev \ 
+     # <-- benötigt für Python OpenEXR bindings
      # --- EGL FIX (AUSKOMMENTIERT FÜR TESTPHASE) ---
      libgles2 \
      libegl1-mesa-dev \
      libglvnd-dev \
-     mesa-utils      # <-- enthält glxinfo (Debugging OpenGL/EGL)
+     mesa-utils   \   
+     # <-- enthält glxinfo (Debugging OpenGL/EGL)
   && rm -rf /var/lib/apt/lists/*
 
 ################################################################################
