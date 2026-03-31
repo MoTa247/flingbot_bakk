@@ -8,9 +8,6 @@
 
 # 12.02.2026 - Tanja Moser - Cuda/Ubuntu zu alt für VS Studio
 FROM nvidia/cudagl:9.2-devel-ubuntu18.04
-#FROM nvidia/cudagl:10.1-devel-ubuntu18.04
-#FROM nvidia/cudagl:12.3.2-devel-ubuntu22.04
-
 
 
 ################################################################################
@@ -32,8 +29,14 @@ RUN apt-get update \
      cmake build-essential libgl1-mesa-dev freeglut3-dev libglfw3-dev libgles2-mesa-dev \
      openexr wget bzip2 ca-certificates curl \
      libopenexr-dev \
-     # libsdl2-2.0-0   # <-- benötigt für PyFlex Runtime (import pyflex)# libsdl2-2.0-0   # <-- benötigt für PyFlex Runtime (import pyflex) # neues Image aber erst nach dem 17.3.26 \
-    # libilmbase-dev   # benötigt für Python OpenEXR bindings
+     #neues Image ab 1.44.2026
+     libsdl2-2.0-0  \ # <-- benötigt für PyFlex Runtime (import pyflex)
+     libilmbase-dev  # <-- benötigt für Python OpenEXR bindings
+     # --- EGL FIX (AUSKOMMENTIERT FÜR TESTPHASE) ---
+     libgles2 \
+     libegl1-mesa-dev \
+     libglvnd-dev \
+     mesa-utils      # <-- enthält glxinfo (Debugging OpenGL/EGL)
   && rm -rf /var/lib/apt/lists/*
 
 ################################################################################
@@ -42,6 +45,16 @@ RUN apt-get update \
 
 ENV NVIDIA_VISIBLE_DEVICES=all
 ENV NVIDIA_DRIVER_CAPABILITIES=graphics,utility,compute
+################################################################################
+# EGL / HEADLESS RENDERING SETTINGS (für PyFlex)
+# ------------------------------------------------------------------------------
+# Wichtig für GPU-Rendering ohne Display (EGL)
+# AKTUELL AUSKOMMENTIERT → erst aktivieren wenn getestet
+################################################################################
+
+# ENV NVIDIA_DRIVER_CAPABILITIES=all		#weniger stabil als Zeile 47
+ENV PYOPENGL_PLATFORM=egl
+ENV EGL_PLATFORM=surfaceless
 
 WORKDIR /workspace
 
@@ -61,8 +74,10 @@ ENV CONDA_DIR=/opt/conda
 # Alte, inkompatible Version (NICHT MEHR BENUTZEN):
 # RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O /tmp/miniconda.sh
 
-# KORREKTE, GLIBC-KOMPATIBLE VERSION:
-RUN wget --quiet https://repo.anaconda.com/miniconda/Miniconda3-py37_4.9.2-Linux-x86_64.sh -O /tmp/miniconda.sh \
+# KORREKTE, GLIBC-KOMPATIBLE VERSION:		"no check" im Fall von Netzwerkproblemen
+RUN wget --quiet --no-check-certificate \
+  https://repo.anaconda.com/miniconda/Miniconda3-py37_4.9.2-Linux-x86_64.sh \
+  -O /tmp/miniconda.sh \
   && /bin/bash /tmp/miniconda.sh -b -p $CONDA_DIR \
   && rm /tmp/miniconda.sh
 
@@ -135,6 +150,13 @@ RUN echo "Conda remains at base version (4.9.2) – no update performed due to G
 RUN echo ". $CONDA_DIR/etc/profile.d/conda.sh" >> /etc/bash.bashrc
 
 ################################################################################
+# PYFLEX ENV VARS FÜR INTERAKTIVE SHELLS
+################################################################################
+
+RUN echo "export PYFLEXROOT=/workspace/PyFlex/" >> /etc/bash.bashrc && \
+    echo "export PYTHONPATH=/workspace/PyFlex/bindings/build:\$PYTHONPATH" >> /etc/bash.bashrc
+
+################################################################################
 # UTF-8 SUPPORT (OPTIONAL, aber SEHR sinnvoll)
 ################################################################################
 
@@ -150,10 +172,15 @@ ENV LC_ALL=C.UTF-8
 # Torch 1.4 ist die letzte stabile CUDA 9.2 kompatible Version.
 ################################################################################
 
+
+#RUN pip install --upgrade "pip<23" setuptools wheel	#notfalls um stabilität mit Python3.7 zu gewährleisten
 RUN pip install --upgrade pip setuptools wheel
 
 # Torch MUSS VOR requirements installiert werden
 RUN pip install torch==1.4.0 torchvision==0.5.0
+#RUN pip install torch==1.4.0+cu92 torchvision==0.5.0+cu92 \	#notfalls ersatz um CUDA9.2 zu sichern
+#    -f https://download.pytorch.org/whl/torch_stable.html
+# wenn ich torch und cuda hier anpasse muss ich in requirements.txt ebenfalls +cu92 bei beiden hinzufügen! sonst mögliche kollision
 
 
 ################################################################################
@@ -173,6 +200,14 @@ RUN pip install -r requirements.txt
 
 COPY . .
 
+################################################################################
+# PYFLEX ENVIRONMENT VARIABLES			[31.3.2026]
+# ------------------------------------------------------------------------------
+# Wichtig für PyFlex bindings (Python findet pyflex.so)
+################################################################################
+
+ENV PYFLEXROOT=/workspace/PyFlex/
+ENV PYTHONPATH=/workspace/PyFlex/bindings/build:${PYTHONPATH}
 
 ################################################################################
 # Python Logging sofort anzeigen (kein Buffering)
@@ -182,6 +217,13 @@ ENV PYTHONUNBUFFERED=1
 
 
 ####bis hier    25.02.2026####
+#### info von 31.3.2026####
+# NOTE:
+# Diese EGL Settings sind notwendig, damit PyFlex im Docker (headless GPU)
+# korrekt läuft. Ohne diese kommt es zu:
+#   eglInitialize() failed
+#   SIGSEGV in SimEnv
+###########################
 
 ################################################################################
 # DEFAULT COMMAND
