@@ -1,5 +1,7 @@
 import torch.nn as nn
 import torch
+torch.cuda.is_available = lambda: False
+
 from scipy import ndimage as nd
 import cv2
 from typing import List
