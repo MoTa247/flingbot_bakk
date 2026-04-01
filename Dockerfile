@@ -210,7 +210,10 @@ COPY . .
 ################################################################################
 
 ENV PYFLEXROOT=/workspace/PyFlex/
-ENV PYTHONPATH=/workspace/PyFlex/bindings/build:${PYTHONPATH}
+ENV PYTHONPATH=/workspace/PyFlex/bindings/build
+ENV LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:/usr/local/cuda/lib64
+#### Wurde ersetzt durch obere ENV PYTHONPATH und ENV LD_LIBRARY_PATH
+#ENV PYTHONPATH=/workspace/PyFlex/bindings/build:${PYTHONPATH}
 
 ################################################################################
 # Python Logging sofort anzeigen (kein Buffering)
