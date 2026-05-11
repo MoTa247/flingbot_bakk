@@ -1,3 +1,4 @@
+import socket
 import json
 import torch
 import numpy as np
@@ -19,6 +20,15 @@ loader = TaskLoader(
 )
 
 task = loader.get_next_task()
+
+# ----------------------------
+# 2.1 Platz für Socket
+# ----------------------------
+
+#client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+#client_socket.connect(("127.0.0.1", 5000))
+
 
 
 # -------------------------------------------------
@@ -43,6 +53,23 @@ class DebugSimEnv(SimEnv):
 
             print("LEFT :", action["p1"])
             print("RIGHT:", action["p2"])
+
+#----------------------------------------------
+#	client_socket.send(
+#
+#    	json.dumps({
+#
+#        	"left_grasp": action["p1"].tolist(),
+#
+#	        "right_grasp": action["p2"].tolist()
+#
+#   	 }).encode()
+#
+#	)
+#----------------------------------------------
+
+
+
 
             self.grasp_log.append({
                 "primitive": action_primitive,
