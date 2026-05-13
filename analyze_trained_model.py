@@ -1,3 +1,4 @@
+import random
 import socket
 import json
 import torch
@@ -14,8 +15,20 @@ args = config_parser().parse_args()
 # 1. Task laden
 # -------------------------------------------------
 
+AVAILABLE_TASKS = [
+	"normal-rect",
+	"large-rect",
+	"shirt"
+]
+
+TASK_NAME = random.choice(AVAILABLE_TASKS)
+
+print(f"\nGewählte Task-Kategorie: {TASK_NAME}")
+
+TASK_FILE = f"flingbot-{TASK_NAME}-eval.hdf5"
+
 loader = TaskLoader(
-    "flingbot-normal-rect-eval.hdf5",
+    TASK_FILE,
     repeat=False
 )
 
