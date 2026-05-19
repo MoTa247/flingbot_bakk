@@ -162,6 +162,8 @@ class DebugSimEnv(SimEnv):
                 # ------------------------------------------------
                 # SOCKET SEND
                 # ------------------------------------------------
+                # TESTPIXEL
+#                center_px = [360, 360]
 
                 payload = {
 
@@ -181,6 +183,8 @@ class DebugSimEnv(SimEnv):
                 print("\n[SOCKET SENT]")
 
                 print(payload)
+
+                print("AFTER SOCKET SEND")
 
                 # ------------------------------------------------
                 # LOGGING
@@ -269,6 +273,8 @@ obs, _ = env.reset()
 MAX_ACTIONS = 10
 
 for action_step in range(MAX_ACTIONS):
+
+    print("STARTING NEXT ACTION")
 
     print(f"\n========== ACTION {action_step} ==========")
 
