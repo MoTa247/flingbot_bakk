@@ -233,12 +233,12 @@ def pixel_to_3d(depth_im, x, y,
     target_position[0] = - target_position[0]
 
     #Test Koordinatensystemanpassung für robosim
-    #print("\nPIXEL_TO_3D RAW:")
+    #print("\nPIXEL_TO_3D RAW:")  #nicht nötig da WORLD SPACE in JSON
     #print(target_position)
 
     #Durch obrigen Test erkannt, dass ein globales Workspace-Alignment ergänzt werden sollte.
-    workspace_offset = np.array([1.4, 1.0, 0.55])
-    target_position += workspace_offset
+    #workspace_offset = np.array([1.4, 1.0, 0.55])
+    #target_position += workspace_offset
 
     return target_position
 

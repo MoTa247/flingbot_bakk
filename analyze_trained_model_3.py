@@ -164,6 +164,17 @@ class DebugSimEnv(SimEnv):
                 # ------------------------------------------------
                 # TESTPIXEL
 #                center_px = [360, 360]
+                # ========================================================
+                # SOCKET BRIDGE TRANSFORM
+                # erstes nicht so gut, zweites besser, drittes noch etwas zu weit, viertes
+                # ========================================================
+                BRIDGE_SCALE_X = 0.72 #0.78 #0.82 #0.90
+                BRIDGE_SCALE_Y = 0.72 #0.78 #0.82 #0.90
+                BRIDGE_OFFSET_X = 145 #135 #125 #110
+                BRIDGE_OFFSET_Y = 145 #135 #125 #110
+
+                center_px[0] = int(center_px[0] * BRIDGE_SCALE_X + BRIDGE_OFFSET_X)
+                center_px[1] = int(center_px[1] * BRIDGE_SCALE_Y + BRIDGE_OFFSET_Y)
 
                 payload = {
 
@@ -303,3 +314,15 @@ with open("outputs/trained_grasps.json", "w") as f:
     json.dump(env.grasp_log, f, indent=4)
 
 print("\nGreifpunkte gespeichert.")
+
+# ==========================================
+# END SIGNAL
+# ==========================================
+
+client_socket.send(
+    json.dumps({
+        "done": True
+    }).encode()
+)
+
+client_socket.close()

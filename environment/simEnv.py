@@ -537,10 +537,25 @@ class SimEnv:
         return p1, p2
 
     def check_arm_reachability(self, arm_base, reach_pos):
+        print("REACH LIMIT:", self.reach_distance_limit)    #Test
         return np.linalg.norm(arm_base - reach_pos) < self.reach_distance_limit
 
     def check_action_reachability(
             self, action: str, p1: np.array, p2: np.array):
+        print("\n=== REACHABILITY DEBUG ===")       #TestBlock bis if action
+        print("ACTION:", action)
+
+        print("P1 WORLD:", p1)
+        print("P2 WORLD:", p2)
+
+        print("LEFT BASE:", self.left_arm_base)
+        print("RIGHT BASE:", self.right_arm_base)
+
+        print("DIST LEFT->P1:",
+              np.linalg.norm(p1 - self.left_arm_base))
+
+        print("DIST RIGHT->P2:",
+              np.linalg.norm(p2 - self.right_arm_base))
         if action == 'fling' or action == 'stretchdrag':
             # right and left must reach each point respectively
             return self.check_arm_reachability(self.left_arm_base, p1) \
@@ -571,6 +586,9 @@ class SimEnv:
         sorted_values, _ = stacked_value_maps.flatten().sort(descending=True)
         actions = list(value_maps.keys())
         for value in sorted_values:
+            print("\n===================================") #Test
+            print("TESTING NEW VALUE CANDIDATE")    #Test
+            print("VALUE:", value.item())   #Test
             for indices in np.array(np.where(stacked_value_maps == value)).T:
                 # Account for index of filtered pixels. See (**) above
                 indices[-2:] += self.pix_grasp_dist
@@ -578,6 +596,8 @@ class SimEnv:
                 max_indices = indices[1:]
                 x, y, z = max_indices
                 action = actions[indices[0]]
+                print("\nACTION:", action)  #Test
+                print("INDICES:", indices)  #Test
                 value_map = value_maps[action]
                 reach_points = np.array(self.get_action_params(
                     action_primitive=action,
@@ -587,6 +607,8 @@ class SimEnv:
                        for p in reach_points):
                     continue
                 p1, p2 = reach_points[:2]
+                print("NETWORK P1:", p1)    #Test
+                print("NETWORK P2:", p2)    #Test
                 action_mask = torch.zeros(value_map.size()[1:])
                 action_mask[y, z] = 1
                 num_scales = len(self.adaptive_scale_factors)
@@ -616,12 +638,16 @@ class SimEnv:
                 action_params = self.check_action(
                     pixels=np.array([p1, p2]),
                     **action_kwargs)
+                print("\nCHECK_ACTION RESULT")  #Test
+                print("valid_action:", action_params['valid_action'])   #Test
                 if not action_params['valid_action']:
+                    print("REJECTED: invalid_action")   #Test
                     continue
                 reachable, left_or_right = self.check_action_reachability(
                     action=action,
                     p1=action_params['p1'],
                     p2=action_params['p2'])
+                print("reachable:", reachable)  #Test
                 if action == 'place' or action == 'drag':
                     action_kwargs['left_or_right'] = left_or_right
 
@@ -649,15 +675,42 @@ class SimEnv:
                     reachable = final_drag_reachable and reachable
 
                 if not reachable:
+                    print("REJECTED: unreachable")  #Test
                     continue
                 action_kwargs['action_visualization'] =\
                     action_params['get_action_visualization_fn']()
                 self.log_step_stats(action_kwargs)
+
+                #an_tr_mo_4 Änderung
+                # ============================================
+                # Preserve pixel grasps for middleware/socket
+                # ============================================
+
+                pixels = action_params['pretransform_pixels'] #an_tr
+                # ============================================
+                # Remove internal-only keys before primitive execution
+                # ============================================
+
                 for k in ['valid_action',
                           'pretransform_pixels',
                           'get_action_visualization_fn']:
                     del action_params[k]
-                return action_kwargs['action_primitive'], action_params
+                # ============================================
+                # Create middleware copy
+                # ============================================
+
+                middleware_action = action_params.copy()
+
+                middleware_action['pretransform_pixels'] = pixels
+
+                #Test-----------
+                print("\nACCEPTED ACTION")
+                print("primitive:", action_kwargs['action_primitive'])
+                print("pixels:", middleware_action['pretransform_pixels'])
+                #---------------
+                return action_kwargs['action_primitive'], middleware_action
+                #OG teil:
+                #return action_kwargs['action_primitive'], action_params
         return None, None
 
     def reset(self):
@@ -682,6 +735,8 @@ class SimEnv:
         obs = self.get_obs()
         self.episode_memory.add_value(
             key='pretransform_observations', value=obs)
+        self.pretransform_obs = obs.detach().cpu().numpy().copy() #für visualize
+        print(self.pretransform_obs.shape) #Test
         self.transformed_obs = prepare_image(
             obs, self.get_transformations(), self.obs_dim,
             parallelize=self.parallelize_prepare_image)
@@ -708,8 +763,9 @@ class SimEnv:
 
     def get_obs(self):
         rgb, d = self.render_cloth()
+        self.pretransform_rgb = rgb.copy() #Für Visualis
         self.pretransform_depth = d
-        self.pretransform_rgb = rgb
+        #self.pretransform_rgb = rgb #OG
         # cloths are closer than 2.0 meters from camera plane
         cloth_mask = self.get_cloth_mask(rgb)
 

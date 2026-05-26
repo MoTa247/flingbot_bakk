@@ -1,92 +1,192 @@
 [
     {
         "primitive": "fling",
-        "center_px": [
-            360,
-            360
+        "policy_p1_px": [
+            232,
+            153
         ],
-        "theta": 3.141592653589793,
-        "width_px": 128.0
+        "policy_p2_px": [
+            232,
+            191
+        ],
+        "robot_p1_px": [
+            417,
+            275
+        ],
+        "robot_p2_px": [
+            417,
+            343
+        ]
     },
     {
         "primitive": "fling",
-        "center_px": [
-            360,
-            360
+        "policy_p1_px": [
+            288,
+            121
         ],
-        "theta": 3.141592653589793,
-        "width_px": 128.0
+        "policy_p2_px": [
+            262,
+            180
+        ],
+        "robot_p1_px": [
+            518,
+            217
+        ],
+        "robot_p2_px": [
+            471,
+            324
+        ]
     },
     {
         "primitive": "fling",
-        "center_px": [
-            360,
-            360
+        "policy_p1_px": [
+            226,
+            100
         ],
-        "theta": 3.141592653589793,
-        "width_px": 128.0
+        "policy_p2_px": [
+            186,
+            154
+        ],
+        "robot_p1_px": [
+            406,
+            180
+        ],
+        "robot_p2_px": [
+            334,
+            277
+        ]
     },
     {
         "primitive": "fling",
-        "center_px": [
-            360,
-            360
+        "policy_p1_px": [
+            231,
+            134
         ],
-        "theta": 3.141592653589793,
-        "width_px": 128.0
+        "policy_p2_px": [
+            205,
+            193
+        ],
+        "robot_p1_px": [
+            415,
+            241
+        ],
+        "robot_p2_px": [
+            369,
+            347
+        ]
     },
     {
         "primitive": "fling",
-        "center_px": [
-            360,
-            360
+        "policy_p1_px": [
+            220,
+            103
         ],
-        "theta": 3.141592653589793,
-        "width_px": 128.0
+        "policy_p2_px": [
+            177,
+            161
+        ],
+        "robot_p1_px": [
+            396,
+            185
+        ],
+        "robot_p2_px": [
+            318,
+            289
+        ]
     },
     {
         "primitive": "fling",
-        "center_px": [
-            360,
-            360
+        "policy_p1_px": [
+            192,
+            171
         ],
-        "theta": 3.141592653589793,
-        "width_px": 128.0
+        "policy_p2_px": [
+            148,
+            231
+        ],
+        "robot_p1_px": [
+            345,
+            307
+        ],
+        "robot_p2_px": [
+            266,
+            415
+        ]
     },
     {
         "primitive": "fling",
-        "center_px": [
-            360,
-            360
+        "policy_p1_px": [
+            173,
+            340
         ],
-        "theta": 3.141592653589793,
-        "width_px": 128.0
+        "policy_p2_px": [
+            78,
+            371
+        ],
+        "robot_p1_px": [
+            311,
+            612
+        ],
+        "robot_p2_px": [
+            140,
+            667
+        ]
     },
     {
         "primitive": "fling",
-        "center_px": [
-            360,
-            360
+        "policy_p1_px": [
+            205,
+            172
         ],
-        "theta": 3.141592653589793,
-        "width_px": 128.0
+        "policy_p2_px": [
+            136,
+            194
+        ],
+        "robot_p1_px": [
+            369,
+            309
+        ],
+        "robot_p2_px": [
+            244,
+            349
+        ]
     },
     {
         "primitive": "fling",
-        "center_px": [
-            360,
-            360
+        "policy_p1_px": [
+            204,
+            221
         ],
-        "theta": 3.141592653589793,
-        "width_px": 128.0
+        "policy_p2_px": [
+            155,
+            249
+        ],
+        "robot_p1_px": [
+            367,
+            397
+        ],
+        "robot_p2_px": [
+            279,
+            448
+        ]
     },
     {
         "primitive": "fling",
-        "center_px": [
-            360,
-            360
+        "policy_p1_px": [
+            221,
+            109
         ],
-        "theta": 3.141592653589793,
-        "width_px": 128.0
+        "policy_p2_px": [
+            182,
+            195
+        ],
+        "robot_p1_px": [
+            397,
+            196
+        ],
+        "robot_p2_px": [
+            327,
+            351
+        ]
     }
 ]
