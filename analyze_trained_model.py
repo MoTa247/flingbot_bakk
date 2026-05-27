@@ -16,9 +16,9 @@ args = config_parser().parse_args()
 # -------------------------------------------------
 
 AVAILABLE_TASKS = [
-	"normal-rect",
-	"large-rect",
-	"shirt"
+    "normal-rect",
+    "large-rect",
+    "shirt"
 ]
 
 TASK_NAME = random.choice(AVAILABLE_TASKS)
@@ -38,11 +38,9 @@ task = loader.get_next_task()
 # 2.1 Platz für Socket
 # ----------------------------
 
-client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+# client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-client_socket.connect(("172.17.0.1", 5001))
-
-
+# client_socket.connect(("172.17.0.1", 5001))
 
 # -------------------------------------------------
 # 2. Sim Environment
@@ -55,39 +53,39 @@ class DebugSimEnv(SimEnv):
 
         self.grasp_log = []
 
-def get_max_value_valid_action(self, value_maps):
+    def get_max_value_valid_action(self, value_maps):
 
-    action_primitive, action = \
-        super().get_max_value_valid_action(value_maps)
+        action_primitive, action = \
+            super().get_max_value_valid_action(value_maps)
 
-    if action is not None:
+        if action is not None:
 
-        print("\n========== TRAINED GRASP ==========")
+            print("\n========== TRAINED GRASP ==========")
 
-        print("LEFT :", action["p1"])
-        print("RIGHT:", action["p2"])
+            print("LEFT :", action["p1"])
+            print("RIGHT:", action["p2"])
 
-        # ----------------------------------------------
-        client_socket.send(
+            # ----------------------------------------------
+#            client_socket.send(
+#
+#                json.dumps({
+#
+#                    "left_grasp": action["p1"].tolist(),
+#
+#                    "right_grasp": action["p2"].tolist()
+#
+#                }).encode()
+#
+#            )
+            # ----------------------------------------------
 
-            json.dumps({
-
+            self.grasp_log.append({
+                "primitive": action_primitive,
                 "left_grasp": action["p1"].tolist(),
-
                 "right_grasp": action["p2"].tolist()
+            })
 
-            }).encode()
-
-        )
-        # ----------------------------------------------
-
-        self.grasp_log.append({
-            "primitive": action_primitive,
-            "left_grasp": action["p1"].tolist(),
-            "right_grasp": action["p2"].tolist()
-        })
-
-    return action_primitive, action
+        return action_primitive, action
 
 
 # -------------------------------------------------
@@ -112,7 +110,7 @@ env = DebugSimEnv(
 
     stretchdrag_dist=0.3,
 
-    reach_distance_limit=1.0,
+    reach_distance_limit=2.0,
 
     fixed_fling_height=0.7,
 
@@ -120,7 +118,6 @@ env = DebugSimEnv(
 
     gui=False
 )
-
 
 # -------------------------------------------------
 # 4. Trainiertes Modell laden
@@ -132,13 +129,11 @@ policy.eval()
 
 print("\nTrainiertes Modell geladen.")
 
-
 # -------------------------------------------------
 # 5. Cloth resetten
 # -------------------------------------------------
 
 obs, _ = env.reset()
-
 
 # -------------------------------------------------
 # 6. Netzwerk Vorhersage
@@ -149,7 +144,6 @@ with torch.no_grad():
     transformed_obs = env.transformed_obs.cuda()
 
     value_maps = policy.act([env.transformed_obs])[0]
-
 
 # ============================================================
 # 7. MEHRERE INTELLIGENTE GREIFAKTIONEN
@@ -191,10 +185,10 @@ for action_step in range(MAX_ACTIONS):
     # Abbruch wenn Episode fertig (nötig?)
     # --------------------------------------------------------
 
-#    if done:
-#
-#        print("\nEpisode beendet.")
-#        break
+    # if done:
+    #
+    #     print("\nEpisode beendet.")
+    #     break
 
 # -------------------------------------------------
 # 8. Speichern
