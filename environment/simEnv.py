@@ -218,6 +218,15 @@ class SimEnv:
                 pos=[0, 2, 0],
                 lookat=[0, 0, 0],
                 up=[0, 0, 1]), **args)
+        #------------TEST für achsen---------------------------
+        print("\n========== VISUALIZATION DEBUG ==========")
+        print("ROTATION:", rotation)
+        print("SCALE:", scale)
+        print("TRANSFORMED PIXELS:", pixels)
+        print("PRETRANSFORM PIXELS:", retval['pretransform_pixels'])
+        print("\n========== RETVAL PRETRANSFORM PIXELS=======")
+        print(retval["pretransform_pixels"])
+
 
         def get_action_visualization():
             return visualize_action(
@@ -232,7 +241,67 @@ class SimEnv:
             'get_action_visualization_fn': get_action_visualization
         })
 
-        cloth_mask = (self.pretransform_depth != 2.0).astype(np.uint8)
+        #cloth_mask = (self.pretransform_depth != 2.0).astype(np.uint8)  #OG
+
+        # ============================================
+        # DEBUG: RGB vs DEPTH MASK OVERLAY
+        # ============================================
+        cloth_mask = (self.pretransform_depth < 1.99).astype(np.uint8)  # Test
+        vals = np.unique(np.round(self.pretransform_depth, 3))
+        print("DEPTH VALUES:", vals[-20:])
+
+        print("DEPTH MIN:", self.pretransform_depth.min())
+        print("DEPTH MAX:", self.pretransform_depth.max())
+
+        print(
+            "CLOTH PIXELS:",
+            cloth_mask.sum(),
+            "/",
+            cloth_mask.size
+        )
+
+        print(
+            "DEPTH[0,0]:",
+            self.pretransform_depth[0, 0]
+        )
+        import cv2
+
+        cv2.imwrite(
+            "cloth_mask.png",
+            cloth_mask * 255
+        )
+
+        import matplotlib.pyplot as plt
+
+        plt.figure(figsize=(6, 6))
+        plt.imshow(self.pretransform_rgb)
+
+        mask_vis = np.zeros((*cloth_mask.shape, 4))
+        mask_vis[..., 1] = cloth_mask * 1.0  # grün
+        mask_vis[..., 3] = cloth_mask * 0.3  # transparent
+
+        plt.imshow(mask_vis)
+        pix_1, pix_2 = retval['pretransform_pixels']
+
+        plt.scatter(
+            pix_1[1], pix_1[0],
+            c='red',
+            s=100
+        )
+
+        plt.scatter(
+            pix_2[1], pix_2[0],
+            c='blue',
+            s=100
+        )
+
+        plt.title("RGB + CLOTH MASK + GRASP POINTS")
+        plt.savefig("mask_debug.png")
+        plt.close()
+
+        # ============================================
+        # ORIGINAL CODE
+        # ============================================
         pix_1, pix_2 = retval['pretransform_pixels']
         if self.conservative_grasp_radius > 0:
             grasp_mask_1 = np.zeros(cloth_mask.shape)
@@ -251,6 +320,26 @@ class SimEnv:
                 'p1_grasp_cloth': cloth_mask[grasp_mask_1].all(),
                 'p2_grasp_cloth': cloth_mask[grasp_mask_2].all(),
             })
+            #TEST Grasp auf Cloth
+            print("--------GRASP LOG--------")
+            print("P1_GRASP_CLOTH:", retval['p1_grasp_cloth'])
+            print("P2_GRASP_CLOTH:", retval['p2_grasp_cloth'])
+            print("PRETRANSFORM PIXELS:", retval['pretransform_pixels'])
+            print("conservative_grasp_radius:", self.conservative_grasp_radius)
+            print("\n--- MASK DEBUG ---")
+            print("p1:", pix_1)
+            print("p2:", pix_2)
+
+            print("cloth_mask shape:", cloth_mask.shape)
+
+            print("grasp_mask_1 sum:", grasp_mask_1.sum())
+            print("grasp_mask_2 sum:", grasp_mask_2.sum())
+
+            print("grasp_mask_1 shape:", grasp_mask_1.shape)
+            print("grasp_mask_2 shape:", grasp_mask_2.shape)
+            print("cloth pixels in grasp mask 1:", cloth_mask[grasp_mask_1].sum(), "/", grasp_mask_1.sum())
+            print("cloth pixels in grasp mask 2:", cloth_mask[grasp_mask_2].sum(), "/", grasp_mask_2.sum())
+
         else:
             retval.update({
                 'p1_grasp_cloth': True,
@@ -599,6 +688,14 @@ class SimEnv:
                 print("\nACTION:", action)  #Test
                 print("INDICES:", indices)  #Test
                 value_map = value_maps[action]
+                print("VALUE MAP SHAPE:", value_map.shape)  # Test bis tuple(value_map.shape))
+                print("BEST VALUE:", value_map.max().item())
+                flat_idx = value_map.argmax().item()
+                best_idx = np.unravel_index(
+                    flat_idx,
+                    tuple(value_map.shape)
+                )
+                print("BEST INDEX:", best_idx)
                 reach_points = np.array(self.get_action_params(
                     action_primitive=action,
                     max_indices=(x, y, z)))
@@ -706,7 +803,9 @@ class SimEnv:
                 #Test-----------
                 print("\nACCEPTED ACTION")
                 print("primitive:", action_kwargs['action_primitive'])
-                print("pixels:", middleware_action['pretransform_pixels'])
+                print("MIDDLEWARE-pixels:", middleware_action['pretransform_pixels'])
+                #print("\nRETVAL PRETRANSFORM PIXELS:", retval["pretransform_pixels"])
+                print("\nTRANSFORMED PIXELS:", pixels)
                 #---------------
                 return action_kwargs['action_primitive'], middleware_action
                 #OG teil:

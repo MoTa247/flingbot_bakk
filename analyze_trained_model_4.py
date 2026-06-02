@@ -87,6 +87,7 @@ class DebugSimEnv(SimEnv):
         obs, info = super().step(value_maps)
 
         #Test print
+        print("CURRENT COVERAGE:", self.compute_coverage())
         print("RGB MEAN:", self.pretransform_rgb.mean())
         print("RGB STD :", self.pretransform_rgb.std())
 
@@ -98,14 +99,23 @@ class DebugSimEnv(SimEnv):
         # ============================================
         # SAVE AFTER FRAME
         # ============================================
-
+        #-------------------------änderung von After damit es an Before passt!------------------
         import cv2
 
         step_id = self.current_step_id
 
-        img = self.pretransform_rgb.copy()
+        self.last_after_rgb = self.pretransform_rgb.copy()   #ersatz für After! return ist og
 
-        img = (img * 255).clip(0,255).astype(np.uint8)
+        print("AFTER RGB ID:", id(self.last_after_rgb))
+        print("PRE RGB ID:", id(self.pretransform_rgb))
+        print("AFTER RGB MEAN:", self.pretransform_rgb.mean())
+        print("AFTER RGB STD :", self.pretransform_rgb.std())
+        print("AFTER RGB SUM:", self.pretransform_rgb.sum())
+
+        #img = self.pretransform_rgb.copy()
+        img = self.last_after_rgb.copy()
+
+        #img = (img * 255).clip(0,255).astype(np.uint8)    #zum testen auskommentiert, daraufhin waren alle bilder ident
 
         cv2.putText(
             img,
@@ -118,9 +128,11 @@ class DebugSimEnv(SimEnv):
         )
 
         cv2.imwrite(
-            f"socket_eval/step_{step_id:03d}_after.png",
+            f"socket_eval/step_{step_id:03d}_02_after.png",
             img
         )
+
+        #self.last_after_rgb = self.pretransform_rgb.copy()   #ersatz für After! return ist og
 
         return obs, info
 
@@ -183,7 +195,19 @@ class DebugSimEnv(SimEnv):
            # img = self.pretransform_obs                              #vor visual
            # img = np.swapaxes(img, 0, -1)
            # img = (img[:, :, :3] * 255).astype(np.uint8)
-            img = self.pretransform_rgb.copy()
+
+            #----------------------- damit after.img mein before(n+1) wird-------------------
+            # Für Step 0 existiert noch kein After-Bild
+            if hasattr(self, "last_after_rgb"):
+                img = self.last_after_rgb.copy()
+
+                print("BEFORE RGB ID:", id(img))
+                print("LAST AFTER ID:", id(self.last_after_rgb))
+
+            else:
+                img = self.pretransform_rgb.copy()
+
+            #img = self.pretransform_rgb.copy()   # alter code nur before
             print("RAW_MAX:", img.max())
             print("RAW_MIN:", img.min())
             print("RAW_DTYPE:", img.dtype)
@@ -193,10 +217,12 @@ class DebugSimEnv(SimEnv):
             # DRAW GRASP POINTS
             # ============================================
 
-            p1_int = tuple(pixels[0].astype(int))
-            print("p1_int:", p1_int)
-            p2_int = tuple(pixels[1].astype(int))
-            print("p2_int", p2_int)
+            p1_int = tuple(pixels[0][::-1].astype(int))
+            #p1_int = tuple(pixels[0].astype(int)) #Test für Achsen
+            #print("p1_int:", p1_int) #Same wie float und payload
+            p2_int = tuple(pixels[1][::-1].astype(int))
+            #p2_int = tuple(pixels[1].astype(int))
+            #print("p2_int", p2_int)
 
             # p1 = green         #noch keine Greifer L R zuweisung!!
             cv2.circle(
@@ -237,7 +263,7 @@ class DebugSimEnv(SimEnv):
             )
 
             cv2.imwrite(
-                f"socket_eval/step_{step_id:03d}_before.png",
+                f"socket_eval/step_{step_id:03d}_01_before.png",
                 img
             )
 
@@ -245,9 +271,9 @@ class DebugSimEnv(SimEnv):
             # GRASP PIXELS
             # ============================================
             p1 = pixels[0].astype(np.float32)
-            print("p1_float:", p1)
+            #print("p1_float:", p1) #Same wie int und payload
             p2 = pixels[1].astype(np.float32)
-            print("p2_float:", p2)
+            #print("p2_float:", p2)
 
             # ============================================
             # FINAL ROBOT CAMERA PIXELS
@@ -316,7 +342,7 @@ class DebugSimEnv(SimEnv):
             print("WORLD P1:", action["p1"])
             print("WORLD P2:", action["p2"])
 
-            print("\nPRETRANSFORM PIXELS:")
+            #print("\nPRETRANSFORM PIXELS:")    #Ident zu pixel aus payload "p1_px" und "p2_px" mit p1_robot.tolist()
             print(action["pretransform_pixels"])
 
 #            print("\n========== TRAINED ACTION ==========")   #ident Pretransform Pixels
@@ -370,11 +396,11 @@ env = DebugSimEnv(
 
     replay_buffer_path="outputs/debug_replay.hdf5",
 
-    obs_dim=64, #128,
+    obs_dim=args.obs_dim, #64, #128,
 
-    num_rotations=12, #16,
+    num_rotations=args.num_rotations, #12, #16,
 
-    scale_factors=[1.0,1.25,1.50,1.75,2.00,2.25,2.50,2.75],
+    scale_factors=args.scale_factors, #[1.0,1.25,1.50,1.75,2.00,2.25,2.50,2.75],
 
     get_task_fn=lambda: task,
 
@@ -385,21 +411,21 @@ env = DebugSimEnv(
         'place'
     ],
 
-    pix_grasp_dist=16,
+    pix_grasp_dist=args.pix_grasp_dist, #16,
 
-    pix_drag_dist=16,
+    pix_drag_dist=args.pix_drag_dist, #16,
 
-    pix_place_dist=10,
+    pix_place_dist=args.pix_place_dist, #10,
 
-    stretchdrag_dist=0.3,
+    stretchdrag_dist=args.stretchdrag_dist, #0.3,
 
-    reach_distance_limit=1.0,
+    reach_distance_limit=args.reach_distance_limit, #1.0,
 
-    fixed_fling_height=0.7,
+    fixed_fling_height=args.fixed_fling_height, #0.7,
 
     render_engine='opengl',
 
-    gui=False
+    gui=args.gui #False
 )
 
 # ============================================================
