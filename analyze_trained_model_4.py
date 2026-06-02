@@ -146,32 +146,32 @@ class DebugSimEnv(SimEnv):
             # CLOTH VALIDITY CHECK
             # ============================================
 
-            mask = self.pretransform_rgb.mean(axis=2)
+            #mask = self.pretransform_rgb.mean(axis=2)
 
-            THRESHOLD = 40
+            #THRESHOLD = 40
 
-            p1x, p1y = pixels[0].astype(int)
-            p2x, p2y = pixels[1].astype(int)
+            #p1x, p1y = pixels[0].astype(int)
+            #p2x, p2y = pixels[1].astype(int)
 
             # Sicherheitsclamp
-            H, W = mask.shape
+            #H, W = mask.shape
 
-            p1x = np.clip(p1x, 0, W-1)
-            p1y = np.clip(p1y, 0, H-1)
+            #p1x = np.clip(p1x, 0, W-1)
+            #p1y = np.clip(p1y, 0, H-1)
 
-            p2x = np.clip(p2x, 0, W-1)
-            p2y = np.clip(p2y, 0, H-1)
+            #p2x = np.clip(p2x, 0, W-1)
+            #p2y = np.clip(p2y, 0, H-1)
 
-            p1_valid = mask[p1y, p1x] > THRESHOLD
-            p2_valid = mask[p2y, p2x] > THRESHOLD
+            #p1_valid = mask[p1y, p1x] > THRESHOLD
+            #p2_valid = mask[p2y, p2x] > THRESHOLD
 
-            print("\n=== CLOTH CHECK ===")
-            print("P1 VALID:", p1_valid)
-            print("P2 VALID:", p2_valid)
+            #print("\n=== CLOTH CHECK ===")
+            #print("P1 VALID:", p1_valid)
+            #print("P2 VALID:", p2_valid)
 
-            if not (p1_valid and p2_valid):
-                print("REJECTING: POINT OUTSIDE CLOTH")
-                #return None, None
+            #if not (p1_valid and p2_valid):
+            #    print("REJECTING: POINT OUTSIDE CLOTH")
+            #    #return None, None
 
 
             # Test visual für echte replayframes, png speicherung, orientierung und generell bild
@@ -184,12 +184,10 @@ class DebugSimEnv(SimEnv):
            # img = np.swapaxes(img, 0, -1)
            # img = (img[:, :, :3] * 255).astype(np.uint8)
             img = self.pretransform_rgb.copy()
+            print("RAW_MAX:", img.max())
+            print("RAW_MIN:", img.min())
+            print("RAW_DTYPE:", img.dtype)
             print("IMG SHAPE:", img.shape)
-
-            # float [0,1] -> uint8 [0,255]
-            img = (img * 255).clip(0,255).astype(np.uint8)
-            print("FINAL SHAPE:", img.shape)
-            print("IMG DTYPE:", img.dtype)
 
             # ============================================
             # DRAW GRASP POINTS
