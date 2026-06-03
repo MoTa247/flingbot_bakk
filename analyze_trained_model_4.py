@@ -87,12 +87,12 @@ class DebugSimEnv(SimEnv):
         obs, info = super().step(value_maps)
 
         #Test print
-        print("CURRENT COVERAGE:", self.compute_coverage())
-        print("RGB MEAN:", self.pretransform_rgb.mean())
-        print("RGB STD :", self.pretransform_rgb.std())
+        #print("CURRENT COVERAGE:", self.compute_coverage())
+        #print("RGB MEAN:", self.pretransform_rgb.mean())
+        #print("RGB STD :", self.pretransform_rgb.std())
 
-        print("OBS MEAN:", self.transformed_obs.mean().item())
-        print("OBS STD :", self.transformed_obs.std().item())
+        #print("OBS MEAN:", self.transformed_obs.mean().item())
+        #print("OBS STD :", self.transformed_obs.std().item())
 
         self.pretransform_obs = obs
 
@@ -106,11 +106,11 @@ class DebugSimEnv(SimEnv):
 
         self.last_after_rgb = self.pretransform_rgb.copy()   #ersatz für After! return ist og
 
-        print("AFTER RGB ID:", id(self.last_after_rgb))
-        print("PRE RGB ID:", id(self.pretransform_rgb))
-        print("AFTER RGB MEAN:", self.pretransform_rgb.mean())
-        print("AFTER RGB STD :", self.pretransform_rgb.std())
-        print("AFTER RGB SUM:", self.pretransform_rgb.sum())
+        #print("AFTER RGB ID:", id(self.last_after_rgb))
+        #print("PRE RGB ID:", id(self.pretransform_rgb))
+        #print("AFTER RGB MEAN:", self.pretransform_rgb.mean())
+        #print("AFTER RGB STD :", self.pretransform_rgb.std())
+        #print("AFTER RGB SUM:", self.pretransform_rgb.sum())
 
         #img = self.pretransform_rgb.copy()
         img = self.last_after_rgb.copy()
@@ -141,9 +141,9 @@ class DebugSimEnv(SimEnv):
         action_primitive, action = \
             super().get_max_value_valid_action(value_maps)
 
-        print("PRETRANSFORM_RGB ID:", id(self.pretransform_rgb))
-        print("OBS ID:", id(self.pretransform_obs))
-        print("TRANSFORMED OBS SHAPE:", self.transformed_obs.shape)
+        #print("PRETRANSFORM_RGB ID:", id(self.pretransform_rgb))
+        #print("OBS ID:", id(self.pretransform_obs))
+        #print("TRANSFORMED OBS SHAPE:", self.transformed_obs.shape)
 
         if action is not None:
 
@@ -198,20 +198,55 @@ class DebugSimEnv(SimEnv):
 
             #----------------------- damit after.img mein before(n+1) wird-------------------
             # Für Step 0 existiert noch kein After-Bild
+            #if hasattr(self, "last_after_rgb"):   #ident unten im 'IMAGE SOURCE DEBUG Block
+            #    img = self.last_after_rgb.copy()
+
+                #print("BEFORE RGB ID:", id(img))
+                #print("LAST AFTER ID:", id(self.last_after_rgb))
+
+            #else:
+            #    img = self.pretransform_rgb.copy()
+
+            #img = self.pretransform_rgb.copy()   # alter code nur before
+            #print("RAW_MAX:", img.max())
+            #print("RAW_MIN:", img.min())
+            #print("RAW_DTYPE:", img.dtype)
+            #print("IMG SHAPE:", img.shape)
+
+            print("\n========== IMAGE SOURCE DEBUG ==========")
+            print("USING LAST_AFTER_RGB:", hasattr(self, "last_after_rgb"))
+
             if hasattr(self, "last_after_rgb"):
                 img = self.last_after_rgb.copy()
-
-                print("BEFORE RGB ID:", id(img))
-                print("LAST AFTER ID:", id(self.last_after_rgb))
-
             else:
                 img = self.pretransform_rgb.copy()
 
-            #img = self.pretransform_rgb.copy()   # alter code nur before
-            print("RAW_MAX:", img.max())
-            print("RAW_MIN:", img.min())
-            print("RAW_DTYPE:", img.dtype)
-            print("IMG SHAPE:", img.shape)
+            print("SOCKET IMG SHAPE:", img.shape)
+            print("PRETRANSFORM RGB SHAPE:", self.pretransform_rgb.shape)
+            #print("DRAW IMG ID:", id(img))
+
+            #if hasattr(self, "raw_pretransform_rgb"):
+            #    print("RAW RGB SHAPE:", self.raw_pretransform_rgb.shape)
+            #    print("RAW RGB ID:", id(self.raw_pretransform_rgb))
+
+            #if hasattr(self, "postcrop_pretransform_rgb"):
+            #    print("POSTCROP RGB SHAPE:", self.postcrop_pretransform_rgb.shape)
+            #    print("POSTCROP RGB ID:", id(self.postcrop_pretransform_rgb))
+
+            #print("PRETRANSFORM RGB SHAPE:", self.pretransform_rgb.shape)
+            #print("PRETRANSFORM RGB ID:", id(self.pretransform_rgb))
+
+            print("PIXELS:", pixels)
+
+            cloth_y, cloth_x = np.where(self.pretransform_depth < 1.99)
+
+            if len(cloth_y) > 0:
+                print(
+                    "CLOTH BBOX:",
+                    "y=[", cloth_y.min(), ",", cloth_y.max(), "]",
+                    "x=[", cloth_x.min(), ",", cloth_x.max(), "]"
+                )
+
 
             # ============================================
             # DRAW GRASP POINTS
@@ -334,13 +369,13 @@ class DebugSimEnv(SimEnv):
                 "p2_px": p2_robot.tolist()
             }
 
-            print("\n========== RAW ACTION DEBUG ==========")
+            #print("\n========== RAW ACTION DEBUG ==========")
 
-            print("ACTION KEYS:", action.keys())
+            #print("ACTION KEYS:", action.keys())
 
-            print("\n========== WORLD SPACE ==========") #= PIXEL_TO_3D Raw (erwählte points)
-            print("WORLD P1:", action["p1"])
-            print("WORLD P2:", action["p2"])
+            #print("\n========== WORLD SPACE ==========") #= PIXEL_TO_3D Raw (erwählte points)
+            #print("WORLD P1:", action["p1"])
+            #print("WORLD P2:", action["p2"])
 
             #print("\nPRETRANSFORM PIXELS:")    #Ident zu pixel aus payload "p1_px" und "p2_px" mit p1_robot.tolist()
             print(action["pretransform_pixels"])
@@ -366,7 +401,7 @@ class DebugSimEnv(SimEnv):
                 (json.dumps(payload) + "\n").encode()
             )
 
-            print("\n[SOCKET SENT]", payload)
+            #print("\n[SOCKET SENT]", payload)
 
             # ============================================
             # LOGGING
@@ -455,11 +490,11 @@ with torch.no_grad():
     prev_obs = env.transformed_obs.clone() #Test policy
     value_maps = policy.act([env.transformed_obs])[0]
     #Test policy bis print
-    diff = torch.mean(torch.abs(
-        env.transformed_obs - prev_obs
-    ))
+    #diff = torch.mean(torch.abs(
+    #    env.transformed_obs - prev_obs
+    #))
 
-    print("OBS DIFF:", diff.item())
+    #print("OBS DIFF:", diff.item())
 
 # ============================================================
 # 8. MULTI ACTION LOOP
