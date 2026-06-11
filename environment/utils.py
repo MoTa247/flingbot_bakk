@@ -159,6 +159,20 @@ def scale2d(scale):
 
 
 def get_transform_matrix(original_dim, resized_dim, rotation, scale):
+    #print("scale:", scale) #Test 2 print() pixel>400
+    #print("inverse scale:", 1 / scale)
+    # nur Debug
+    #if scale > 2.0:
+    #    print("LARGE SCALE DETECTED:", scale)
+
+    #test_scale_mat = np.matmul(
+    #    np.matmul(
+    #        translate2d(-np.ones(2) * (resized_dim // 2)),
+    #        scale2d(1 / scale),
+    #    ),
+    #    translate2d(np.ones(2) * (resized_dim // 2))
+    #)
+
     # resize
     resize_mat = scale2d(original_dim/resized_dim)
     # scale
@@ -252,8 +266,20 @@ def pixels_to_3d_positions(
         resized_dim=transformed_depth.shape[0],
         rotation=-rotation,  # TODO bug
         scale=scale)
+    #print("\n===== TRANSFORM MATRIX =====") #Test bis print(mat) pixel>400
+    #print("rotation:", rotation)
+    #print("scale:", scale)
+    #print(mat)
     pixels = np.concatenate((pixels, np.array([[1], [1]])), axis=1)
+    pixels_before = pixels.copy()  # Test Sicherung pixel>400
     pixels = np.matmul(pixels, mat)[:, :2].astype(int)
+    #if (pixels < 0).any() or (pixels >= pretransform_depth.shape[0]).any(): #Test bis print(,mat) pixel>400
+        #print("\n===== OUT OF BOUNDS =====")
+        #print("rotation:", rotation)
+        #print("scale:", scale)
+        #print("NETWORK PIXELS:", pixels_before[:, :2])
+        #print("AFTER MATMUL:", pixels)
+        #print("MATRIX:\n", mat)
     pix_1, pix_2 = pixels
     max_idx = pretransform_depth.shape[0]
     if (pixels < 0).any() or (pixels >= max_idx).any():

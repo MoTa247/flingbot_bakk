@@ -204,6 +204,10 @@ class SimEnv:
                      scale, rotation,
                      value_map=None, all_value_maps=None,
                      **kwargs):
+        if not hasattr(self, "_radius_printed"):        #Test ob Strenger Candidate check
+            print("conservative_grasp_radius:",
+                  self.conservative_grasp_radius)
+            self._radius_printed = True
         args = {
             'pretransform_depth': self.pretransform_depth.copy(),
             'pretransform_rgb': self.pretransform_rgb.copy(),
@@ -219,13 +223,27 @@ class SimEnv:
                 lookat=[0, 0, 0],
                 up=[0, 0, 1]), **args)
         #------------TEST für achsen---------------------------
-        print("\n========== VISUALIZATION DEBUG ==========")
-        print("ROTATION:", rotation)
-        print("SCALE:", scale)
-        print("TRANSFORMED PIXELS:", pixels)
-        print("PRETRANSFORM PIXELS:", retval['pretransform_pixels'])
-        print("\n========== RETVAL PRETRANSFORM PIXELS=======")
-        print(retval["pretransform_pixels"])
+        #print("\n========== VISUALIZATION DEBUG ==========")
+        #print("ROTATION:", rotation)
+        #print("SCALE:", scale)
+        #print("TRANSFORMED PIXELS:", pixels)
+        #print("PRETRANSFORM PIXELS:", retval['pretransform_pixels'])
+        #print("\n========== RETVAL PRETRANSFORM PIXELS======= def check_action")
+        #print(retval["pretransform_pixels"])
+        pix1, pix2 = retval['pretransform_pixels']      #Test Pixel bis Print out of bounds
+        for name, pix in [("P1", pix1), ("P2", pix2)]:
+
+            if (0 <= pix[0] < self.pretransform_depth.shape[0] and
+                    0 <= pix[1] < self.pretransform_depth.shape[1]):
+
+                d = self.pretransform_depth[pix[0], pix[1]]
+
+                #print(f"DEPTH400 {name}:", d)
+                #print(f"MASK400 {name}:", d < 1.99)
+
+            else:
+                pass
+                #print(f"{name} OUT OF BOUNDS:", pix)
 
 
         def get_action_visualization():
@@ -248,56 +266,50 @@ class SimEnv:
         # ============================================
         cloth_mask = (self.pretransform_depth < 1.99).astype(np.uint8)  # Test
         vals = np.unique(np.round(self.pretransform_depth, 3))
-        print("DEPTH VALUES:", vals[-20:])
+        #print("DEPTH VALUES:", vals[-20:])
 
-        print("DEPTH MIN:", self.pretransform_depth.min())
-        print("DEPTH MAX:", self.pretransform_depth.max())
+        #print("DEPTH MIN:", self.pretransform_depth.min())
+        #print("DEPTH MAX:", self.pretransform_depth.max())
 
-        print(
-            "CLOTH PIXELS:",
-            cloth_mask.sum(),
-            "/",
-            cloth_mask.size
-        )
+        #print("CLOTH PIXELS:", cloth_mask.sum(), "/", cloth_mask.size)
 
-        print(
-            "DEPTH[0,0]:",
-            self.pretransform_depth[0, 0]
-        )
-        import cv2
+        #print("DEPTH[0,0]:", self.pretransform_depth[0, 0])
+        #---------- MATLAB PLOT CODEABSCHNITT-------
+        #import cv2
 
-        cv2.imwrite(
-            "cloth_mask.png",
-            cloth_mask * 255
-        )
+        #cv2.imwrite(
+        #    "cloth_mask.png",
+        #    cloth_mask * 255
+        #)
 
-        import matplotlib.pyplot as plt
+        #import matplotlib.pyplot as plt
 
-        plt.figure(figsize=(6, 6))
-        plt.imshow(self.pretransform_rgb)
+        #plt.figure(figsize=(6, 6))
+        #plt.imshow(self.pretransform_rgb)
 
-        mask_vis = np.zeros((*cloth_mask.shape, 4))
-        mask_vis[..., 1] = cloth_mask * 1.0  # grün
-        mask_vis[..., 3] = cloth_mask * 0.3  # transparent
+        #mask_vis = np.zeros((*cloth_mask.shape, 4))
+        #mask_vis[..., 1] = cloth_mask * 1.0  # grün
+        #mask_vis[..., 3] = cloth_mask * 0.3  # transparent
 
-        plt.imshow(mask_vis)
-        pix_1, pix_2 = retval['pretransform_pixels']
+        #plt.imshow(mask_vis)
+        #pix_1, pix_2 = retval['pretransform_pixels']
 
-        plt.scatter(
-            pix_1[1], pix_1[0],
-            c='red',
-            s=100
-        )
+        #plt.scatter(
+        #    pix_1[1], pix_1[0],
+        #    c='red',
+        #    s=100
+        #)
 
-        plt.scatter(
-            pix_2[1], pix_2[0],
-            c='blue',
-            s=100
-        )
+        #plt.scatter(
+        #    pix_2[1], pix_2[0],
+        #    c='blue',
+        #    s=100
+        #)
 
-        plt.title("RGB + CLOTH MASK + GRASP POINTS")
-        plt.savefig("mask_debug.png")
-        plt.close()
+        #plt.title("RGB + CLOTH MASK + GRASP POINTS")
+        #plt.savefig("mask_debug.png")
+        #plt.close()
+        #-------ENDE MATLAB CODEABSCHNITT--------
 
         # ============================================
         # ORIGINAL CODE
@@ -321,31 +333,64 @@ class SimEnv:
                 'p2_grasp_cloth': cloth_mask[grasp_mask_2].all(),
             })
             #TEST Grasp auf Cloth
-            print("--------GRASP LOG--------")
-            print("P1_GRASP_CLOTH:", retval['p1_grasp_cloth'])
-            print("P2_GRASP_CLOTH:", retval['p2_grasp_cloth'])
-            print("PRETRANSFORM PIXELS:", retval['pretransform_pixels'])
-            print("conservative_grasp_radius:", self.conservative_grasp_radius)
-            print("\n--- MASK DEBUG ---")
-            print("p1:", pix_1)
-            print("p2:", pix_2)
+            #print("--------GRASP LOG--------")
+            #print("P1_GRASP_CLOTH:", retval['p1_grasp_cloth'])
+            #print("P2_GRASP_CLOTH:", retval['p2_grasp_cloth'])
+            #Test tr.mat 4 prints pix related
+            #print("PIX_1:", pix_1)
+            #print("PIX_2:", pix_2)
 
-            print("cloth_mask shape:", cloth_mask.shape)
+            #print(
+            #    "DEPTH PIX_1:",
+            #    self.pretransform_depth[pix_1[0], pix_1[1]],
+            #    "MASK:",
+            #    cloth_mask[pix_1[0], pix_1[1]]
+            #)
+            #print(
+            #    "DEPTH PIX_1 SWAPPED:",
+            #    self.pretransform_depth[pix_1[1], pix_1[0]]
+            #)
+            #print(
+            #    "DEPTH PIX_2:",
+            #    self.pretransform_depth[pix_2[0], pix_2[1]],
+            #    "MASK:",
+            #    cloth_mask[pix_2[0], pix_2[1]]
+            #)
+            #print(
+            #    "DEPTH PIX_2 SWAPPED:",
+            #    self.pretransform_depth[pix_2[1], pix_2[0]]
+            #)
+            #print("PRETRANSFORM PIXELS:", retval['pretransform_pixels'])
+            #print("conservative_grasp_radius:", self.conservative_grasp_radius)
+            #print("\n--- MASK DEBUG ---")
+            #print("p1:", pix_1)
+            #print("p2:", pix_2)
 
-            print("grasp_mask_1 sum:", grasp_mask_1.sum())
-            print("grasp_mask_2 sum:", grasp_mask_2.sum())
+            #print("cloth_mask shape:", cloth_mask.shape)
 
-            print("grasp_mask_1 shape:", grasp_mask_1.shape)
-            print("grasp_mask_2 shape:", grasp_mask_2.shape)
-            print("cloth pixels in grasp mask 1:", cloth_mask[grasp_mask_1].sum(), "/", grasp_mask_1.sum())
-            print("cloth pixels in grasp mask 2:", cloth_mask[grasp_mask_2].sum(), "/", grasp_mask_2.sum())
+            #print("grasp_mask_1 sum:", grasp_mask_1.sum())
+            #print("grasp_mask_2 sum:", grasp_mask_2.sum())
+
+            #print("grasp_mask_1 shape:", grasp_mask_1.shape)
+            #print("grasp_mask_2 shape:", grasp_mask_2.shape)
+            #print("cloth pixels in grasp mask 1:", cloth_mask[grasp_mask_1].sum(), "/", grasp_mask_1.sum())
+            #print("cloth pixels in grasp mask 2:", cloth_mask[grasp_mask_2].sum(), "/", grasp_mask_2.sum())
 
         else:
             retval.update({
                 'p1_grasp_cloth': True,
                 'p2_grasp_cloth': True,
             })
+        retval['valid_action'] = (          #test tr.mat
+                retval['valid_action']
+                and retval['p1_grasp_cloth']
+                and retval['p2_grasp_cloth']
+        )
         # TODO can probably refactor so args to primitives have better variable names
+        #print("\n===== FINAL ACTION CHECK =====")
+        #print("valid_action before:", retval['valid_action'])
+        #print("p1_grasp_cloth:", retval['p1_grasp_cloth'])
+        #print("p2_grasp_cloth:", retval['p2_grasp_cloth'])
         return retval
 
     def fling_primitive(self, dist, fling_height, fling_speed):
@@ -391,7 +436,18 @@ class SimEnv:
 
         # lift to prefling
         self.movep([[dist/2, 0.3, -0.3], [-dist/2, 0.3, -0.3]], speed=5e-3)
-        if not self.is_cloth_grasped():
+        print("\n===== CLOTH GRASP CHECK =====")    #Test um zu sehen ob Cloth wirlklich erreicht wird
+        print("grasp_states:", self.grasp_states)
+        print("dist:", dist)
+        #if not self.is_cloth_grasped():      #OG bis return (3Z)
+        #    self.terminate = True
+        #    return
+        grasped = self.is_cloth_grasped()       #Test bis if not grasped:   return
+
+        print("is_cloth_grasped:", grasped)
+
+        if not grasped:
+            print("FLING ABORTED")
             self.terminate = True
             return
         dist = self.stretch_cloth(grasp_dist=dist, fling_height=0.3)
@@ -626,25 +682,25 @@ class SimEnv:
         return p1, p2
 
     def check_arm_reachability(self, arm_base, reach_pos):
-        print("REACH LIMIT:", self.reach_distance_limit)    #Test
+        #print("REACH LIMIT:", self.reach_distance_limit)    #Test
         return np.linalg.norm(arm_base - reach_pos) < self.reach_distance_limit
 
     def check_action_reachability(
             self, action: str, p1: np.array, p2: np.array):
-        print("\n=== REACHABILITY DEBUG ===")       #TestBlock bis if action
-        print("ACTION:", action)
+        #print("\n=== REACHABILITY DEBUG ===")       #TestBlock bis if action
+        #print("ACTION:", action)
 
-        print("P1 WORLD:", p1)
-        print("P2 WORLD:", p2)
+        #print("P1 WORLD:", p1)
+        #print("P2 WORLD:", p2)
 
-        print("LEFT BASE:", self.left_arm_base)
-        print("RIGHT BASE:", self.right_arm_base)
+        #print("LEFT BASE:", self.left_arm_base)
+        #print("RIGHT BASE:", self.right_arm_base)
 
-        print("DIST LEFT->P1:",
-              np.linalg.norm(p1 - self.left_arm_base))
+        #print("DIST LEFT->P1:",
+        #      np.linalg.norm(p1 - self.left_arm_base))
 
-        print("DIST RIGHT->P2:",
-              np.linalg.norm(p2 - self.right_arm_base))
+        #print("DIST RIGHT->P2:",
+        #      np.linalg.norm(p2 - self.right_arm_base))
         if action == 'fling' or action == 'stretchdrag':
             # right and left must reach each point respectively
             return self.check_arm_reachability(self.left_arm_base, p1) \
@@ -663,6 +719,8 @@ class SimEnv:
 
     def get_max_value_valid_action(self, value_maps) -> dict:
         stacked_value_maps = torch.stack(tuple(value_maps.values()))
+        print("STACKED SHAPE:", stacked_value_maps.shape)       #Test hoher Count
+        print("TOTAL ENTRIES:", stacked_value_maps.numel())     #Test hoher Count
 
         # (**) filter out points too close to edge
         stacked_value_maps = stacked_value_maps[
@@ -674,28 +732,44 @@ class SimEnv:
         # flattened value list, then sort and eliminate
         sorted_values, _ = stacked_value_maps.flatten().sort(descending=True)
         actions = list(value_maps.keys())
+        #print("\n===== VALUE MAP KEYS =====")
+        #print(list(value_maps.keys()))
+        print("\n===== MAX VALUE PER PRIMITIVE =====")  #Test primitive choice
+        for a in actions:
+            print(
+                f"{a:12s}",
+                value_maps[a].max().item()
+            )
+        candidate_counter = 0       #Test Counter
+        invalid_counter = 0         #Test Counter
+        self.best_p1_ratio = 0.0    #Test hoher Counter
+        self.best_p2_ratio = 0.0    #Test hoher Counter
         for value in sorted_values:
-            print("\n===================================") #Test
-            print("TESTING NEW VALUE CANDIDATE")    #Test
-            print("VALUE:", value.item())   #Test
+            #print("\n===================================") #Test
+            #print("TESTING NEW VALUE CANDIDATE")    #Test
+            #print("VALUE:", value.item())   #Test
+
             for indices in np.array(np.where(stacked_value_maps == value)).T:
+                candidate_counter += 1      #Test Counter
+                if candidate_counter % 3000 == 0:       #Test Counter alle 3000#1000
+                    print("Candidates tested:", candidate_counter)
                 # Account for index of filtered pixels. See (**) above
                 indices[-2:] += self.pix_grasp_dist
 
                 max_indices = indices[1:]
                 x, y, z = max_indices
                 action = actions[indices[0]]
-                print("\nACTION:", action)  #Test
-                print("INDICES:", indices)  #Test
+                #print("\nACTION:", action)  #Test
+                #print("INDICES:", indices)  #Test
                 value_map = value_maps[action]
-                print("VALUE MAP SHAPE:", value_map.shape)  # Test bis tuple(value_map.shape))
-                print("BEST VALUE:", value_map.max().item())
+                #print("VALUE MAP SHAPE:", value_map.shape)  # Test bis tuple(value_map.shape))
+                #print("BEST VALUE:", value_map.max().item())
                 flat_idx = value_map.argmax().item()
                 best_idx = np.unravel_index(
                     flat_idx,
                     tuple(value_map.shape)
                 )
-                print("BEST INDEX:", best_idx)
+                #print("BEST INDEX:", best_idx)
                 reach_points = np.array(self.get_action_params(
                     action_primitive=action,
                     max_indices=(x, y, z)))
@@ -704,8 +778,22 @@ class SimEnv:
                        for p in reach_points):
                     continue
                 p1, p2 = reach_points[:2]
-                print("NETWORK P1:", p1)    #Test
-                print("NETWORK P2:", p2)    #Test
+                #print("NETWORK P1:", p1)    #Test
+                #print("NETWORK P2:", p2)    #Test
+                transformed_depth_64 = self.transformed_obs[x, 3, :, :].numpy() #Test
+                cloth_mask_64 = transformed_depth_64< 1.99 #Test
+                #print("NETWORK P1 ON CLOTH:", cloth_mask_64[p1[1], p1[0]]) #Test
+                #print("NETWORK P2 ON CLOTH:", cloth_mask_64[p2[1], p2[0]]) #Test
+                #print("DEPTH64 P1:", transformed_depth_64[p1[1], p1[0]])    #Test
+                #print("DEPTH64 P2:",transformed_depth_64[p2[1], p2[0]])     #Test
+                #print("NUM CLOTH PIXELS:", (transformed_depth_64 < 1.99).sum()) #Test
+                #print("DEPTH MIN:", transformed_depth_64.min())             #Test
+                #print("DEPTH MAX:", transformed_depth_64.max())             #Test
+                img64 = transformed_depth_64.copy()
+                #plt.imshow(cloth_mask_64)                                   #Test
+                #plt.scatter(p1[0], p1[1], c='red')                          #Test
+                #plt.scatter(p2[0], p2[1], c='blue')                         #Test
+                #plt.show()                                                  #Test
                 action_mask = torch.zeros(value_map.size()[1:])
                 action_mask[y, z] = 1
                 num_scales = len(self.adaptive_scale_factors)
@@ -735,16 +823,14 @@ class SimEnv:
                 action_params = self.check_action(
                     pixels=np.array([p1, p2]),
                     **action_kwargs)
-                print("\nCHECK_ACTION RESULT")  #Test
-                print("valid_action:", action_params['valid_action'])   #Test
                 if not action_params['valid_action']:
-                    print("REJECTED: invalid_action")   #Test
+                    invalid_counter += 1      #Test Counter
                     continue
                 reachable, left_or_right = self.check_action_reachability(
                     action=action,
                     p1=action_params['p1'],
                     p2=action_params['p2'])
-                print("reachable:", reachable)  #Test
+                #print("reachable:", reachable)  #Test
                 if action == 'place' or action == 'drag':
                     action_kwargs['left_or_right'] = left_or_right
 
@@ -802,11 +888,27 @@ class SimEnv:
 
                 #Test-----------
                 print("\nACCEPTED ACTION")
-                print("primitive:", action_kwargs['action_primitive'])
+                #print("primitive:", action_kwargs['action_primitive'])
                 print("MIDDLEWARE-pixels:", middleware_action['pretransform_pixels'])
                 #print("\nRETVAL PRETRANSFORM PIXELS:", retval["pretransform_pixels"])
-                print("\nTRANSFORMED PIXELS:", pixels)
+                #print("\nTRANSFORMED PIXELS:", pixels)
                 #---------------
+                print("\n===== VALID ACTION FOUND =====")       #Test Counter bis P2
+                print("Candidates tested:", candidate_counter)
+                print("Rejected candidates:", invalid_counter)
+                print("BEST P1 RATIO SEEN:", self.best_p1_ratio)    #Test höhe counter
+                print("BEST P2 RATIO SEEN:", self.best_p2_ratio)
+
+                print("NETWORK P1:", p1)
+                print("NETWORK P2:", p2)
+
+                print("PRETRANSFORM:", middleware_action['pretransform_pixels'])
+                print("P1_GRASP_CLOTH:", middleware_action['p1_grasp_cloth'])
+                print("P2_GRASP_CLOTH:", middleware_action['p2_grasp_cloth'])
+                print("\n===== ACTION TYPE =====")
+                print("PRIMITIVE:", action_kwargs['action_primitive'])
+                #print("PRIMITIVE CHANNEL:", indices[0])
+                print("VALUE:", value.item())
                 return action_kwargs['action_primitive'], middleware_action
                 #OG teil:
                 #return action_kwargs['action_primitive'], action_params
@@ -882,6 +984,14 @@ class SimEnv:
                 crop = int(crop*1.5)
                 if crop < dimx:
                     self.adaptive_scale_factors *= crop/dimx
+                    #-----Test für scale----
+                    print("\n===== ADAPTIVE SCALE DEBUG =====")
+                    #print("crop:", crop)
+                    #print("dimx:", dimx)
+                    print("crop/dimx:", crop / dimx)
+                    #print("scale_factors:", self.scale_factors)
+                    #print("adaptive_scale_factors:", self.adaptive_scale_factors)
+                    #-----TestEnde
                     self.episode_memory.add_value(
                         key='adaptive_scale',
                         value=float(crop/dimx))
@@ -976,11 +1086,31 @@ class SimEnv:
                 if len(frames) == 0:
                     continue
 
+                # ============================================
+                # TEST: save last video frame as REAL AFTER
+                # NUTZEN: für Last Frame (nur für meine socket_eval)
+                # ============================================
+
+                last_frame = frames[-1]
+
+                self.last_after_rgb = cv2.cvtColor(
+                    last_frame,
+                    cv2.COLOR_RGB2BGR
+                )
+
+                cv2.imwrite(
+                    f"socket_eval/step_{self.current_step_id:03d}_REAL_AFTER.png",
+                    self.last_after_rgb
+                )
+                print("REAL AFTER SAVED")
+                #------TEST ENDE ------------
                 path = os.path.join(vis_dir, f'{key}.mp4')
                 height, width, _ = frames[0].shape
 
                 # Define the codec and create VideoWriter object
                 fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # or use 'XVID'
+                print("WRITING VIDEO:", path)           #Test prints Video
+                print("FRAME SHAPE:", frames[0].shape)
                 out = cv2.VideoWriter(path, fourcc, 24, (width, height))
 
                 for frame in (frames if not log else tqdm(frames, desc=f'Dumping {key} frames')):
@@ -989,6 +1119,7 @@ class SimEnv:
                     out.write(bgr_frame)
 
                 out.release()
+                print("VIDEO SAVED:", path)     #Test Video
 
             self.episode_memory.add_value(
                 key='visualization_dir',

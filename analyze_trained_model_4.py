@@ -8,11 +8,27 @@ import numpy as np
 
 from environment.tasks import TaskLoader
 from environment.simEnv import SimEnv
+from environment.utils import draw_action
 
 from utils import config_parser, setup_network
 
 args = config_parser().parse_args()
+#----------------TEST Überschreiben-----
+# ============================================
+# TEST: enable all primitives
+# ============================================
 
+args.action_primitives = [
+    'fling',
+    'stretchdrag',
+    'drag',
+    'place'
+]
+#-----------Überschreiben ende----------
+
+
+print("\n===== ARG DEBUG =====")
+print("ARGS ACTION PRIMITIVES:", args.action_primitives)
 # ================================
 # Neueste Task Load überschreibt die Daten des letzen Loads
 # ================================
@@ -71,28 +87,56 @@ class DebugSimEnv(SimEnv):
 
         self.grasp_log = []
 
+    def dump_current_video(self, step_id):
+
+        if 'top' not in self.env_video_frames:
+            print("NO VIDEO FRAMES")
+            return
+
+        frames = self.env_video_frames['top']
+
+        if len(frames) == 0:
+            print("EMPTY VIDEO FRAMES")
+            return
+
+        path = f"socket_eval/step_{step_id:03d}.mp4"
+
+        height, width, _ = frames[0].shape
+
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        out = cv2.VideoWriter(
+            path,
+            fourcc,
+            24,
+            (width, height)
+        )
+
+        for frame in frames:
+            bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+            out.write(bgr)
+
+        out.release()
+
+        print("VIDEO SAVED:", path)
+
+
     def reset(self, *args, **kwargs):
 
         obs, info = super().reset(*args, **kwargs)
 
         self.pretransform_obs = obs
 
-        return obs, info
+	# semantisch sauber
+        self.before_rgb = self.pretransform_rgb.copy()
 
+        return obs, info
+    
     def step(self, value_maps):
 
         # ============================================
         # RUN FLINGBOT STEP
         # ============================================
         obs, info = super().step(value_maps)
-
-        #Test print
-        #print("CURRENT COVERAGE:", self.compute_coverage())
-        #print("RGB MEAN:", self.pretransform_rgb.mean())
-        #print("RGB STD :", self.pretransform_rgb.std())
-
-        #print("OBS MEAN:", self.transformed_obs.mean().item())
-        #print("OBS STD :", self.transformed_obs.std().item())
 
         self.pretransform_obs = obs
 
@@ -104,18 +148,12 @@ class DebugSimEnv(SimEnv):
 
         step_id = self.current_step_id
 
-        self.last_after_rgb = self.pretransform_rgb.copy()   #ersatz für After! return ist og
-
-        #print("AFTER RGB ID:", id(self.last_after_rgb))
-        #print("PRE RGB ID:", id(self.pretransform_rgb))
-        #print("AFTER RGB MEAN:", self.pretransform_rgb.mean())
-        #print("AFTER RGB STD :", self.pretransform_rgb.std())
-        #print("AFTER RGB SUM:", self.pretransform_rgb.sum())
-
-        #img = self.pretransform_rgb.copy()
-        img = self.last_after_rgb.copy()
-
-        #img = (img * 255).clip(0,255).astype(np.uint8)    #zum testen auskommentiert, daraufhin waren alle bilder ident
+        #self.last_after_rgb = self.pretransform_rgb.copy()   #ersatz für After! return ist og
+        #img = self.last_after_rgb.copy()
+        if hasattr(self, "last_after_rgb"):
+            img = self.last_after_rgb.copy()
+        else:
+            img = self.pretransform_rgb.copy()
 
         cv2.putText(
             img,
@@ -127,12 +165,45 @@ class DebugSimEnv(SimEnv):
             2
         )
 
+        print("\n===== SAVE DEBUG =====")
+        print("STEP:", step_id)
+        print("SAVE TYPE:", "AFTER")
+        print("IMAGE ID:", id(img))
+        print("IMAGE SHAPE:", img.shape)
+        print("IMAGE SUM:", img.sum())
+
         cv2.imwrite(
             f"socket_eval/step_{step_id:03d}_02_after.png",
             img
         )
 
-        #self.last_after_rgb = self.pretransform_rgb.copy()   #ersatz für After! return ist og
+        # ============================================
+        # SAVE ACTION VIDEO
+        # ============================================
+
+        if 'top' in self.env_video_frames:
+
+            frames = self.env_video_frames['top']
+            if len(frames) > 0:
+                 video_path = f"socket_eval/step_{step_id:03d}.mp4"
+                 height, width, _ = frames[0].shape
+                 fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+                 out = cv2.VideoWriter(
+                     video_path,
+                     fourcc,
+                     24,
+                     (width, height)
+                 )
+                 for frame in frames:
+                     bgr_frame = cv2.cvtColor(
+                         frame,
+                         cv2.COLOR_RGB2BGR
+                     )
+                     out.write(bgr_frame)
+
+                 out.release()
+
+        self.env_video_frames.clear()
 
         return obs, info
 
@@ -141,10 +212,6 @@ class DebugSimEnv(SimEnv):
         action_primitive, action = \
             super().get_max_value_valid_action(value_maps)
 
-        #print("PRETRANSFORM_RGB ID:", id(self.pretransform_rgb))
-        #print("OBS ID:", id(self.pretransform_obs))
-        #print("TRANSFORMED OBS SHAPE:", self.transformed_obs.shape)
-
         if action is not None:
 
             # ============================================
@@ -152,38 +219,13 @@ class DebugSimEnv(SimEnv):
             # ============================================
 
             pixels = action["pretransform_pixels"].copy()
-            #pixels = np.array(pixels)   #Falls mal Listen statt Arrays kommen
+            
+            # echtes OG-Bild sichern
+            self.before_rgb = self.pretransform_rgb.copy()
 
             # ============================================
             # CLOTH VALIDITY CHECK
             # ============================================
-
-            #mask = self.pretransform_rgb.mean(axis=2)
-
-            #THRESHOLD = 40
-
-            #p1x, p1y = pixels[0].astype(int)
-            #p2x, p2y = pixels[1].astype(int)
-
-            # Sicherheitsclamp
-            #H, W = mask.shape
-
-            #p1x = np.clip(p1x, 0, W-1)
-            #p1y = np.clip(p1y, 0, H-1)
-
-            #p2x = np.clip(p2x, 0, W-1)
-            #p2y = np.clip(p2y, 0, H-1)
-
-            #p1_valid = mask[p1y, p1x] > THRESHOLD
-            #p2_valid = mask[p2y, p2x] > THRESHOLD
-
-            #print("\n=== CLOTH CHECK ===")
-            #print("P1 VALID:", p1_valid)
-            #print("P2 VALID:", p2_valid)
-
-            #if not (p1_valid and p2_valid):
-            #    print("REJECTING: POINT OUTSIDE CLOTH")
-            #    #return None, None
 
 
             # Test visual für echte replayframes, png speicherung, orientierung und generell bild
@@ -191,52 +233,13 @@ class DebugSimEnv(SimEnv):
 
             step_id = len(self.grasp_log)
             self.current_step_id = step_id
-            # bereits NumPy array mit shape: (4,400,400)
-           # img = self.pretransform_obs                              #vor visual
-           # img = np.swapaxes(img, 0, -1)
-           # img = (img[:, :, :3] * 255).astype(np.uint8)
-
-            #----------------------- damit after.img mein before(n+1) wird-------------------
-            # Für Step 0 existiert noch kein After-Bild
-            #if hasattr(self, "last_after_rgb"):   #ident unten im 'IMAGE SOURCE DEBUG Block
-            #    img = self.last_after_rgb.copy()
-
-                #print("BEFORE RGB ID:", id(img))
-                #print("LAST AFTER ID:", id(self.last_after_rgb))
-
-            #else:
-            #    img = self.pretransform_rgb.copy()
-
-            #img = self.pretransform_rgb.copy()   # alter code nur before
-            #print("RAW_MAX:", img.max())
-            #print("RAW_MIN:", img.min())
-            #print("RAW_DTYPE:", img.dtype)
-            #print("IMG SHAPE:", img.shape)
-
-            print("\n========== IMAGE SOURCE DEBUG ==========")
-            print("USING LAST_AFTER_RGB:", hasattr(self, "last_after_rgb"))
 
             if hasattr(self, "last_after_rgb"):
                 img = self.last_after_rgb.copy()
             else:
                 img = self.pretransform_rgb.copy()
-
-            print("SOCKET IMG SHAPE:", img.shape)
-            print("PRETRANSFORM RGB SHAPE:", self.pretransform_rgb.shape)
-            #print("DRAW IMG ID:", id(img))
-
-            #if hasattr(self, "raw_pretransform_rgb"):
-            #    print("RAW RGB SHAPE:", self.raw_pretransform_rgb.shape)
-            #    print("RAW RGB ID:", id(self.raw_pretransform_rgb))
-
-            #if hasattr(self, "postcrop_pretransform_rgb"):
-            #    print("POSTCROP RGB SHAPE:", self.postcrop_pretransform_rgb.shape)
-            #    print("POSTCROP RGB ID:", id(self.postcrop_pretransform_rgb))
-
-            #print("PRETRANSFORM RGB SHAPE:", self.pretransform_rgb.shape)
-            #print("PRETRANSFORM RGB ID:", id(self.pretransform_rgb))
-
-            print("PIXELS:", pixels)
+	    
+            img = self.before_rgb.copy()
 
             cloth_y, cloth_x = np.where(self.pretransform_depth < 1.99)
 
@@ -247,44 +250,26 @@ class DebugSimEnv(SimEnv):
                     "x=[", cloth_x.min(), ",", cloth_x.max(), "]"
                 )
 
+	    # ============================================
+	    # DRAW ACTION (OG FLINGBOT)
+	    # ============================================
 
+            overlay = draw_action(
+               action_primitive=action_primitive,
+               shape=self.pretransform_depth.shape[:2],
+               pixels=pixels,
+               thickness=3
+            )
+	    
+            overlay_rgb = (overlay[:, :, :3] * 255).astype(np.uint8)
+
+            mask = overlay_rgb.sum(axis=2) > 0
+
+            img[mask] = overlay_rgb[mask]
+	    
             # ============================================
-            # DRAW GRASP POINTS
+            # DRAW LABEL
             # ============================================
-
-            p1_int = tuple(pixels[0][::-1].astype(int))
-            #p1_int = tuple(pixels[0].astype(int)) #Test für Achsen
-            #print("p1_int:", p1_int) #Same wie float und payload
-            p2_int = tuple(pixels[1][::-1].astype(int))
-            #p2_int = tuple(pixels[1].astype(int))
-            #print("p2_int", p2_int)
-
-            # p1 = green         #noch keine Greifer L R zuweisung!!
-            cv2.circle(
-                img,
-                p1_int,
-                radius=6,
-                color=(0,255,0),
-                thickness=-1
-            )
-
-            # p2 = red            #nicht rot! blau
-            cv2.circle(
-                img,
-                p2_int,
-                radius=6,
-                color=(255,0,0),
-                thickness=-1
-            )
-
-            # line between grasp points
-            cv2.line(
-                img,
-                p1_int,
-                p2_int,
-                color=(255,255,0),
-                thickness=2
-            )
 
             # step label
             cv2.putText(
@@ -297,6 +282,14 @@ class DebugSimEnv(SimEnv):
                 2
             )
 
+            print("\n===== SAVE DEBUG =====")
+            print("STEP:", step_id)
+            print("SAVE TYPE:", "BEFORE")
+            print("IMAGE ID:", id(img))
+            print("IMAGE SHAPE:", img.shape)
+            print("IMAGE SUM:", img.sum())
+
+            print("BEFORE FILE:", f"socket_eval/step_{step_id:03d}_01_before.png") #Test Before 00 finden
             cv2.imwrite(
                 f"socket_eval/step_{step_id:03d}_01_before.png",
                 img
@@ -306,17 +299,9 @@ class DebugSimEnv(SimEnv):
             # GRASP PIXELS
             # ============================================
             p1 = pixels[0].astype(np.float32)
-            #print("p1_float:", p1) #Same wie int und payload
             p2 = pixels[1].astype(np.float32)
-            #print("p2_float:", p2)
 
-            # ============================================
-            # FINAL ROBOT CAMERA PIXELS
-            # ============================================
-#            p1_robot = p1.astype(int)
-#            p2_robot = p2.astype(int)
-
-            #---------------------------------------------
+	    #---------------------------------------------
             # RENDER_DIM ADJUSTMENT
             #---------------------------------------------
             CAMERA_TARGET = 720
@@ -369,27 +354,7 @@ class DebugSimEnv(SimEnv):
                 "p2_px": p2_robot.tolist()
             }
 
-            #print("\n========== RAW ACTION DEBUG ==========")
-
-            #print("ACTION KEYS:", action.keys())
-
-            #print("\n========== WORLD SPACE ==========") #= PIXEL_TO_3D Raw (erwählte points)
-            #print("WORLD P1:", action["p1"])
-            #print("WORLD P2:", action["p2"])
-
-            #print("\nPRETRANSFORM PIXELS:")    #Ident zu pixel aus payload "p1_px" und "p2_px" mit p1_robot.tolist()
             print(action["pretransform_pixels"])
-
-#            print("\n========== TRAINED ACTION ==========")   #ident Pretransform Pixels
-#
-#            print("Primitive :", action_primitive)
-
-#            print("LEFT PIXEL :", pixels[0])
-#            print("RIGHT PIXEL:", pixels[1])
-
-#            print("\n========== RENDER SPACE ==========") #ident Pretransform Pixels
-#            print("POLICY P1:", pixels[0])
-#            print("POLICY P2:", pixels[1])
 
             # ============================================
             # SOCKET PAYLOAD
@@ -400,8 +365,6 @@ class DebugSimEnv(SimEnv):
             client_socket.send(
                 (json.dumps(payload) + "\n").encode()
             )
-
-            #print("\n[SOCKET SENT]", payload)
 
             # ============================================
             # LOGGING
@@ -460,7 +423,9 @@ env = DebugSimEnv(
 
     render_engine='opengl',
 
-    gui=args.gui #False
+    gui=args.gui, #False,
+
+    dump_visualizations=True      # <-- neu
 )
 
 # ============================================================
@@ -489,12 +454,6 @@ with torch.no_grad():
 
     prev_obs = env.transformed_obs.clone() #Test policy
     value_maps = policy.act([env.transformed_obs])[0]
-    #Test policy bis print
-    #diff = torch.mean(torch.abs(
-    #    env.transformed_obs - prev_obs
-    #))
-
-    #print("OBS DIFF:", diff.item())
 
 # ============================================================
 # 8. MULTI ACTION LOOP
@@ -571,3 +530,4 @@ print("\n[SOCKET] End signal sent.")
 client_socket.close()
 
 print("[SOCKET] Closed.")
+
