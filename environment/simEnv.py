@@ -1098,11 +1098,11 @@ class SimEnv:
                     cv2.COLOR_RGB2BGR
                 )
 
-                cv2.imwrite(
-                    f"socket_eval/step_{self.current_step_id:03d}_REAL_AFTER.png",
-                    self.last_after_rgb
-                )
-                print("REAL AFTER SAVED")
+                #cv2.imwrite(                   #Auskommentiert altes REAL_AFTER
+                #    f"socket_eval/step_{self.current_step_id:03d}_REAL_AFTER.png",
+                #    self.last_after_rgb
+                #)
+                #print("REAL AFTER SAVED")
                 #------TEST ENDE ------------
                 path = os.path.join(vis_dir, f'{key}.mp4')
                 height, width, _ = frames[0].shape
@@ -1116,6 +1116,7 @@ class SimEnv:
                 for frame in (frames if not log else tqdm(frames, desc=f'Dumping {key} frames')):
                     # Convert from RGB to BGR (OpenCV uses BGR)
                     bgr_frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+                    #bgr_frame = cv2.rotate(bgr_frame, cv2.ROTATE_90_CLOCKWISE) #IMG ROTATION
                     out.write(bgr_frame)
 
                 out.release()
