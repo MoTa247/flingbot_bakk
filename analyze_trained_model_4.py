@@ -18,12 +18,12 @@ args = config_parser().parse_args()
 # TEST: enable all primitives
 # ============================================
 
-args.action_primitives = [
-    'fling',
-    'stretchdrag',
-    'drag',
-    'place'
-]
+#args.action_primitives = [
+#    'fling',
+#    'stretchdrag',
+#    'drag',
+#    'place'
+#]
 #-----------Überschreiben ende----------
 
 
