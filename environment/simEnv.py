@@ -1119,6 +1119,17 @@ class SimEnv:
                     out.write(bgr_frame)
 
                 out.release()
+                import shutil           #Kopie des Finalen Videos in den Socket_Eval Ordner
+
+                shutil.copy(
+                    path,
+                    f"socket_eval/step_{self.current_step_id:03d}.mp4"
+                )
+
+                print(
+                    "FINAL STEP VIDEO COPIED:",
+                    f"socket_eval/step_{self.current_step_id:03d}.mp4"
+                )
                 print("VIDEO SAVED:", path)     #Test Video
 
             self.episode_memory.add_value(
