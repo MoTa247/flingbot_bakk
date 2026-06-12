@@ -77,6 +77,9 @@ class DebugSimEnv(SimEnv):
 
         self.pretransform_obs = obs
 
+	# semantisch sauber
+        self.before_rgb = self.pretransform_rgb.copy()
+
         return obs, info
 
     def step(self, value_maps):
