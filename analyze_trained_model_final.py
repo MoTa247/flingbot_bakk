@@ -5,6 +5,9 @@ import socket
 import json
 import torch
 import numpy as np
+import time
+import struct
+import threading
 
 from environment.tasks import TaskLoader
 from environment.simEnv import SimEnv
@@ -13,7 +16,18 @@ from environment.utils import draw_action
 from utils import config_parser, setup_network
 
 args = config_parser().parse_args()
+#----------------TEST Überschreiben-----
+# ============================================
+# TEST: enable all primitives
+# ============================================
 
+#args.action_primitives = [
+#    'fling',
+#    'stretchdrag',
+#    'drag',
+#    'place'
+#]
+#-----------Überschreiben ende----------
 # ================================
 # Neueste Task Load überschreibt die Daten des letzen Loads
 # ================================
@@ -60,6 +74,29 @@ client_socket.connect(("172.17.0.1", 5001))
 
 print("\n[SOCKET] Connected to Robot Controller")
 
+time.sleep(2)
+
+frame_socket = socket.socket( socket.AF_INET, socket.SOCK_STREAM)
+
+frame_socket.connect(("172.17.0.1", 5002))
+
+print("[FRAME SOCKET] Connected")
+
+#------------Test Frame------------
+#test_frame = np.zeros((100, 100, 3), dtype=np.uint8)
+
+#h, w, c = test_frame.shape
+
+#header = struct.pack("!III", h, w, c)
+
+#frame_socket.sendall(header)
+#frame_socket.sendall(test_frame.tobytes())
+
+#print("[TEST FRAME SENT]")
+
+#------------------------------------------
+
+
 # ============================================================
 # 3. DEBUG ENVIRONMENT
 # ============================================================
@@ -71,6 +108,20 @@ class DebugSimEnv(SimEnv):
         super().__init__(*args, **kwargs)
 
         self.grasp_log = []
+        self.robot_finished_event = threading.Event()
+        self.robot_finished_event.set()   # nothing in flight yet, so the first action isn't blocked
+        #self._ack_recv_buffer = ""
+
+
+#    def _read_one_ack(self):
+#        """Blocks until exactly one JSON ack line is available and returns it parsed."""
+#        while "\n" not in self._ack_recv_buffer:
+#            data = client_socket.recv(4096).decode()
+#            if not data:
+#                raise RuntimeError("Robot socket closed while waiting for ACK")
+#            self._ack_recv_buffer += data
+#        line, self._ack_recv_buffer = self._ack_recv_buffer.split("\n", 1)
+#        return json.loads(line)
 
     def dump_current_video(self, step_id):
 
@@ -97,12 +148,29 @@ class DebugSimEnv(SimEnv):
         )
 
         for frame in frames:
+            #bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)  #OG
+            #IMG ROTATION ---- 2*bgr =... 
             bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+
+            #bgr = cv2.rotate(bgr, cv2.ROTATE_90_CLOCKWISE)
             out.write(bgr)
 
         out.release()
 
         print("VIDEO SAVED:", path)
+
+    def send_frame_to_robotsim(self, frame):
+        success, encoded = cv2.imencode(".jpg", frame)
+
+        if not success:
+            return
+
+        data = encoded.tobytes()
+
+        client_socket.sendall(struct.pack(">I", len(data)))
+
+        client_socket.sendall(data)
+
 
     def reset(self, *args, **kwargs):
 
@@ -154,14 +222,11 @@ class DebugSimEnv(SimEnv):
         print("IMAGE SUM:", img.sum())
 
         #-------------IMG rotation-------
-        img_rot = cv2.rotate(
-            img,
-            cv2.ROTATE_90_CLOCKWISE
-        )
+        #img_rot = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
 
         cv2.imwrite(
             f"socket_eval/step_{step_id:03d}_02_after.png",
-            img_rot #img
+            img #_rot #img
         )
 
         # ============================================
@@ -186,6 +251,7 @@ class DebugSimEnv(SimEnv):
                          frame,
                          cv2.COLOR_RGB2BGR
                      )
+                     #bgr_frame = cv2.rotate(bgr_frame, cv2.ROTATE_90_CLOCKWISE) #IMG ROTATION
                      out.write(bgr_frame)
 
                  out.release()
@@ -276,14 +342,11 @@ class DebugSimEnv(SimEnv):
 
             print("BEFORE FILE:", f"socket_eval/step_{step_id:03d}_01_before.png") #Test Before 00 finden
             #---------IMG ROTATION----------
-            img_rot = cv2.rotate(
-                img,
-                cv2.ROTATE_90_CLOCKWISE
-            )
+            #img_rot = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
 
             cv2.imwrite(
                 f"socket_eval/step_{step_id:03d}_01_before.png",
-                img_rot #img
+                img #_rot #img
             )
 
             # ============================================
@@ -309,6 +372,16 @@ class DebugSimEnv(SimEnv):
 
             print("ANGLE:", angle)
             #ENDE TEST ROTATION
+            #----TEST GRASP DISTANZ von Flingbot (sollte min 0.25)----
+            grasp_dist_px = np.linalg.norm(p2 - p1)
+
+            print("\n===== FLINGBOT GRASP DISTANCE =====")
+            print("P1:", p1)
+            print("P2:", p2)
+            print("DISTANCE (px):", grasp_dist_px)
+            print("==================================")
+            #---ENDE TEST GRASP DISTANZ------------
+
 
 	    #---------------------------------------------
             # RENDER_DIM ADJUSTMENT
@@ -316,28 +389,34 @@ class DebugSimEnv(SimEnv):
             CAMERA_TARGET = 720
             RENDER_DIM = self.image_dim          #um Hardcoden auf 400 zu vermeiden
 
-            camera_scale = CAMERA_TARGET / RENDER_DIM
+            camera_scale = CAMERA_TARGET / RENDER_DIM  #OG
+            #camera_scale = 2.0 #nur zum Testen da sonst min_width problem
 
+            print("\n===== SCALE DEBUG =====")    #TEST GRASP DISTANZ
+            print("self.image_dim:", self.image_dim)
+            print("camera_scale:", camera_scale)
+            print("=======================")
             p1_robot = (p1 * camera_scale).astype(int)
             p2_robot = (p2 * camera_scale).astype(int)
 
             # ---------------------------------------------
             # KOORDINATENANPASSUNG: 
             # ---------------------------------------------
-            p1_robot = np.array([ p1[1], p1[0] ]) 
-            p2_robot = np.array([ p2[1], p2[0] ])
-            #p1_robot = np.array([
-            #    p1_robot[1],
-            #    CAMERA_TARGET - 1 - p1_robot[0]
-            #])
+            p1_robot = np.array([ p1[1], p1[0] ]) #OG
+            p2_robot = np.array([ p2[1], p2[0] ]) #OG
 
-            #p2_robot = np.array([
-            #    p2_robot[1],
-            #    CAMERA_TARGET - 1 - p2_robot[0]
-            #])
+#---------------------SKALIERUNG UND ROTATION FÜR DIE MP4 ANPASSUNG--------------------
+            #p1_robot = np.array([ p1[1]*camera_scale, p1[0]*camera_scale]) #*scale
+            #p2_robot = np.array([ p2[1]*camera_scale, p2[0]*camera_scale]) #*scale
 
-            p1_robot = (p1_robot * camera_scale).astype(int)
-            p2_robot = (p2_robot * camera_scale).astype(int)
+            #print("\nBEFORE:", "P1:",p1_robot, "P2:", p2_robot)
+            #p1_robot = np.array([p1_robot[1], CAMERA_TARGET - 1 - p1_robot[0]])  #p1_r[1], Cam..[0]
+
+            #p2_robot = np.array([p2_robot[1], CAMERA_TARGET - 1 - p2_robot[0]])  #2[1],CAM--[0]
+            #print("\nAFTER:", "P1:",p1_robot, "P2:", p2_robot)
+#--------------------------------------------------------------------------------------
+            p1_robot = (p1_robot * camera_scale).astype(int)	#OG
+            p2_robot = (p2_robot * camera_scale).astype(int)	#OG
 
             #TEST ÜBERTRAGUNG ROTATION
             print("\n============================")
@@ -360,6 +439,16 @@ class DebugSimEnv(SimEnv):
 
             #print("ANGLE:", angle)
             #ENDE TEST ROTATION
+            #---TEST GRASP DISTANZ von Flingbot (sollte min 0.25)---
+            grasp_dist_robot_px = np.linalg.norm(p2_robot - p1_robot)
+
+            print("\n===== ROBOT CAMERA GRASP DISTANCE =====")
+            print("P1:", p1_robot)
+            print("P2:", p2_robot)
+            print("DISTANCE (px):", grasp_dist_robot_px)
+            print("======================================")
+            #---ENDE TEST GRASP DISTZANZ--------------
+
             #---------------------------------------------
             # RENDER_DIM -> ROBOT CAMERA SPACE             (bis vor payload)
             # ---------------------------------------------
@@ -401,7 +490,7 @@ class DebugSimEnv(SimEnv):
 
                 "p1_px": p1_robot.tolist(),
 
-                "p2_px": p2_robot.tolist()
+                "p2_px": p2_robot.tolist(),
             }
 
             #print("\n========== RAW ACTION DEBUG ==========")
@@ -432,18 +521,50 @@ class DebugSimEnv(SimEnv):
             # PAYLOAD BENEATH ROBOT CAMERA SPACE
             #-------------------------------------
 
+            # make sure the *previous* action's robot motion has actually finished
+            # before we dispatch a new one (safety: never two actions in flight)
+            self.robot_finished_event.wait()
+            self.robot_finished_event.clear()
+
             client_socket.send(
                 (json.dumps(payload) + "\n").encode()
             )
+
+            # only wait for the quick "received" ack here — this is what lets
+            # FlingBot's own fling simulation start at roughly the same moment
+            # the robot starts moving, instead of after it's done moving  (OG while T-loop with executed)
             while True:
                ack_data = client_socket.recv(4096).decode().strip()
                if not ack_data:
                   raise RuntimeError("Robot socket closed while waiting for ACK")
                ack = json.loads(ack_data)
+           #    ack = self._read_one_ack()      #new ersetzt alles darüber
                print("\n[ACK RECEIVED]", ack)
-               if ack.get("status") == "executed":
+               if ack.get("status") == "received":
                   break
             #print("\n[SOCKET SENT]", payload)
+
+            # hand off waiting for full physical completion to a background thread
+            def _wait_for_executed():
+               # try:
+                while True:
+                    ack_data = client_socket.recv(4096).decode().strip()
+                    if not ack_data:
+                        print("Robot socket closed while waiting for 'executed' ACK")
+                        self.robot_finished_event.set()
+                        return
+                    ack = json.loads(ack_data)
+                #        ack = self._read_one_ack()
+                    print("\n[ACK RECEIVED]", ack)
+                    if ack.get("status") == "executed":
+                        self.robot_finished_event.set()
+                        return
+                #except Exception as e:
+                #    print("[ACK THREAD ERROR]", e)
+                #finally:
+                #    self.robot_finished_event.set()   # ALWAYS unblock the next action, even on failure
+
+            threading.Thread(target=_wait_for_executed, daemon=True).start()
 
             # ============================================
             # LOGGING
@@ -488,9 +609,9 @@ env = DebugSimEnv(
         'place'
     ],
 
-    pix_grasp_dist=args.pix_grasp_dist, #16,
+    pix_grasp_dist=args.pix_grasp_dist, #->per default hier 8!  #16,
 
-    pix_drag_dist=args.pix_drag_dist, #16,
+    pix_drag_dist=args.pix_drag_dist, #->per default hier 10!, #16,
 
     pix_place_dist=args.pix_place_dist, #10,
 
@@ -507,6 +628,11 @@ env = DebugSimEnv(
     dump_visualizations=True      # <-- neu
 )
 
+# -------------------------------------------------
+# Frame Socket an Environment übergeben
+# -------------------------------------------------
+
+env.frame_socket = frame_socket
 # ============================================================
 # 5. LOAD NETWORK
 # ============================================================            
