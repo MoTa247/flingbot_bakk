@@ -1001,29 +1001,35 @@ class SimEnv:
                     self.env_video_frames['top'] = []
                 #--TEST rotation cam------
                 frame = np.squeeze(np.array(get_image()[0]))
+                #if getattr(self, "stream_full_video", True):                #to switch between video and img_old _ now in an_tr..final.py
                 # --- CLOTH-ONLY MASK (excludes background + grippers, keeps cloth incl. shadowed cloth) GRIPPER COLOR---
-                #hsv = cv2.cvtColor(frame, cv2.COLOR_RGB2HSV)
-                #saturation = hsv[:, :, 1]
-                #value = hsv[:, :, 2]
+                    #hsv = cv2.cvtColor(frame, cv2.COLOR_RGB2HSV)
+                    #saturation = hsv[:, :, 1]
+                    #value = hsv[:, :, 2]
 
-                #is_cloth = (saturation > 40) & (value > 20)  # 0-255 scale in cv2 HSV
-                #frame = np.where(is_cloth[:, :, None], frame, 0)
+                    #is_cloth = (saturation > 40) & (value > 20)  # 0-255 scale in cv2 HSV
+                    #frame = np.where(is_cloth[:, :, None], frame, 0)
                 # --- END MASK ---
-                frame = np.rot90(frame, k=-1)
+                #    frame = np.rot90(frame, k=-1)
                 #-FRAME STRUCTURE----
-                h, w, c = frame.shape
+                #    h, w, c = frame.shape
 
-                header = struct.pack("!III",h,w,c)
-                if hasattr(self, "frame_socket"):
-                    #print("[FRAME] sending header")
-                    self.frame_socket.sendall(header)
-                    #print("[FRAME] header sent")
-                    #print("[FRAME] sending image")
-                    self.frame_socket.sendall(frame.tobytes())
-                    #print("[FRAME] image sent")
-                #print(f"[FRAME SENT] {frame.shape}")
+                #    header = struct.pack("!III",h,w,c)
+                #    if hasattr(self, "frame_socket"):
+                        #print("[FRAME] sending header")
+                #        self.frame_socket.sendall(header)
+                        #print("[FRAME] header sent")
+                        #print("[FRAME] sending image")
+                #        self.frame_socket.sendall(frame.tobytes())
+                        #print("[FRAME] image sent")
+                    #print(f"[FRAME SENT] {frame.shape}")
                 #--------------------
-                self.env_video_frames['top'].append(frame)
+                #-------- new for switch vid-img-----
+                if getattr(self, "stream_full_video", True):
+                    self._send_topdown_frame(frame)
+                #----------
+                #self.env_video_frames['top'].append(frame) #OG before switch
+                self.env_video_frames['top'].append(np.rot90(frame, k=-1))
                 #---Test Ende-----
             #self.env_video_frames['top'].append(
             #        np.squeeze(np.array(get_image()[0])))      #OG
