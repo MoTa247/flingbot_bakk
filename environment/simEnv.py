@@ -27,6 +27,7 @@ import imageio
 import os
 import pyflex
 import cv2
+import struct
 
 
 class SimEnv:
@@ -48,7 +49,7 @@ class SimEnv:
                  dump_visualizations=False,
                  parallelize_prepare_image=False,
                  gui=False,
-                 grasp_height=0.02,
+                 grasp_height=0.005, #0.02, Grippersize?
                  fling_speed=6e-3,
                  episode_length=10,
                  render_dim=400,
@@ -274,42 +275,6 @@ class SimEnv:
         #print("CLOTH PIXELS:", cloth_mask.sum(), "/", cloth_mask.size)
 
         #print("DEPTH[0,0]:", self.pretransform_depth[0, 0])
-        #---------- MATLAB PLOT CODEABSCHNITT-------
-        #import cv2
-
-        #cv2.imwrite(
-        #    "cloth_mask.png",
-        #    cloth_mask * 255
-        #)
-
-        #import matplotlib.pyplot as plt
-
-        #plt.figure(figsize=(6, 6))
-        #plt.imshow(self.pretransform_rgb)
-
-        #mask_vis = np.zeros((*cloth_mask.shape, 4))
-        #mask_vis[..., 1] = cloth_mask * 1.0  # grün
-        #mask_vis[..., 3] = cloth_mask * 0.3  # transparent
-
-        #plt.imshow(mask_vis)
-        #pix_1, pix_2 = retval['pretransform_pixels']
-
-        #plt.scatter(
-        #    pix_1[1], pix_1[0],
-        #    c='red',
-        #    s=100
-        #)
-
-        #plt.scatter(
-        #    pix_2[1], pix_2[0],
-        #    c='blue',
-        #    s=100
-        #)
-
-        #plt.title("RGB + CLOTH MASK + GRASP POINTS")
-        #plt.savefig("mask_debug.png")
-        #plt.close()
-        #-------ENDE MATLAB CODEABSCHNITT--------
 
         # ============================================
         # ORIGINAL CODE
@@ -679,6 +644,11 @@ class SimEnv:
         else:
             raise Exception(
                 f'Action Primitive not supported: {action_primitive}')
+        #---TEST rotation cam
+        #N = self.obs_dim
+        #p1 = np.array([p1[1], N - 1 - p1[0]])
+        #p2 = np.array([p2[1], N - 1 - p2[0]])
+        #--TEST ende
         return p1, p2
 
     def check_arm_reachability(self, arm_base, reach_pos):
@@ -1029,8 +999,34 @@ class SimEnv:
             if step % 4 == 0 and self.dump_visualizations:
                 if 'top' not in self.env_video_frames:
                     self.env_video_frames['top'] = []
-                self.env_video_frames['top'].append(
-                    np.squeeze(np.array(get_image()[0])))
+                #--TEST rotation cam------
+                frame = np.squeeze(np.array(get_image()[0]))
+                # --- CLOTH-ONLY MASK (excludes background + grippers, keeps cloth incl. shadowed cloth) GRIPPER COLOR---
+                #hsv = cv2.cvtColor(frame, cv2.COLOR_RGB2HSV)
+                #saturation = hsv[:, :, 1]
+                #value = hsv[:, :, 2]
+
+                #is_cloth = (saturation > 40) & (value > 20)  # 0-255 scale in cv2 HSV
+                #frame = np.where(is_cloth[:, :, None], frame, 0)
+                # --- END MASK ---
+                frame = np.rot90(frame, k=-1)
+                #-FRAME STRUCTURE----
+                h, w, c = frame.shape
+
+                header = struct.pack("!III",h,w,c)
+                if hasattr(self, "frame_socket"):
+                    #print("[FRAME] sending header")
+                    self.frame_socket.sendall(header)
+                    #print("[FRAME] header sent")
+                    #print("[FRAME] sending image")
+                    self.frame_socket.sendall(frame.tobytes())
+                    #print("[FRAME] image sent")
+                #print(f"[FRAME SENT] {frame.shape}")
+                #--------------------
+                self.env_video_frames['top'].append(frame)
+                #---Test Ende-----
+            #self.env_video_frames['top'].append(
+            #        np.squeeze(np.array(get_image()[0])))      #OG
         raise MoveJointsException
 
     def reset_end_effectors(self):
