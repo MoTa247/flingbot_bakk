@@ -51,7 +51,7 @@ AVAILABLE_TASKS = [
     "shirt"
 ]
 
-TASK_NAME = random.choice(AVAILABLE_TASKS)
+TASK_NAME = "shirt" #random.choice(AVAILABLE_TASKS)              #pick one of: "normal-rect", "large-rect", "shirt"
 print("DEBUG TASK:", TASK_NAME)
 print(f"\nGewählte Task-Kategorie: {TASK_NAME}")
 
@@ -221,12 +221,15 @@ class DebugSimEnv(SimEnv):
         print("IMAGE SHAPE:", img.shape)
         print("IMAGE SUM:", img.sum())
 
+        if not getattr(self, "stream_full_video", True):
+            self._send_topdown_frame(img.copy())
+
         #-------------IMG rotation-------
-        #img_rot = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
+        img_rot = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
 
         cv2.imwrite(
             f"socket_eval/step_{step_id:03d}_02_after.png",
-            img #_rot #img
+            img_rot #img
         )
 
         # ============================================
@@ -302,6 +305,10 @@ class DebugSimEnv(SimEnv):
                     "x=[", cloth_x.min(), ",", cloth_x.max(), "]"
                 )
 
+            if not getattr(self, "stream_full_video", True):
+                self._send_topdown_frame(self.before_rgb.copy())
+
+
 	    # ============================================
 	    # DRAW ACTION (OG FLINGBOT)
 	    # ============================================
@@ -342,11 +349,11 @@ class DebugSimEnv(SimEnv):
 
             print("BEFORE FILE:", f"socket_eval/step_{step_id:03d}_01_before.png") #Test Before 00 finden
             #---------IMG ROTATION----------
-            #img_rot = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
+            img_rot = cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE)
 
             cv2.imwrite(
                 f"socket_eval/step_{step_id:03d}_01_before.png",
-                img #_rot #img
+                img_rot #img
             )
 
             # ============================================
@@ -585,6 +592,25 @@ class DebugSimEnv(SimEnv):
 
         return action_primitive, action
 
+    def _send_topdown_frame(self, rgb_frame):
+        
+        import cv2
+
+        if not hasattr(self, "frame_socket"):
+            return
+
+        hsv = cv2.cvtColor(rgb_frame, cv2.COLOR_RGB2HSV)
+        saturation = hsv[:, :, 1]
+        value = hsv[:, :, 2]
+        is_cloth = (saturation > 40) & (value > 20)
+        masked = np.where(is_cloth[:, :, None], rgb_frame, 0)
+
+        rotated = np.rot90(masked, k=-1)
+        h, w, c = rotated.shape
+        header = struct.pack("!III", h, w, c)
+        self.frame_socket.sendall(header)
+        self.frame_socket.sendall(rotated.tobytes())
+
 
 # ============================================================
 # 4. ENVIRONMENT
@@ -633,6 +659,8 @@ env = DebugSimEnv(
 # -------------------------------------------------
 
 env.frame_socket = frame_socket
+
+env.stream_full_video = False   # Fals = before/after only, Tru = full fling video
 # ============================================================
 # 5. LOAD NETWORK
 # ============================================================            
