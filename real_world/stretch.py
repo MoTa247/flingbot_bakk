@@ -141,13 +141,20 @@ def is_cloth_stretched(
 
 
 def stretch(ur5_pair, front_camera, height: float, grasp_width: float,
-            max_grasp_width=0.6):
+            max_grasp_width=0.6, stretch_factor=1.2):
     from .setup import DEFAULT_ORN, DIST_UR5
+    # Hardcoded stretch target: stop once the gripper-to-gripper distance
+    # reaches `stretch_factor` times the width they started at (i.e. the
+    # width at which the cloth was grasped), instead of using
+    # is_cloth_stretched()'s vision-based angle/straightness check.
+    initial_grasp_width = grasp_width
+    target_grasp_width = initial_grasp_width * stretch_factor
     while True:
         rgb, depth = front_camera.get_rgbd(repeats=3)
         # if both arms no longer are holding onto cloth anymore
+        # or the hardcoded stretch target has been reached
         if not all(is_cloth_grasped(depth=depth)) \
-                or is_cloth_stretched(rgb=rgb, depth=depth) or \
+                or grasp_width >= target_grasp_width or \
                 grasp_width > max_grasp_width:
             return grasp_width
         grasp_width += 0.02
