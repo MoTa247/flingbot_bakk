@@ -27,7 +27,6 @@ import imageio
 import os
 import pyflex
 import cv2
-import struct
 
 
 class SimEnv:
@@ -223,30 +222,6 @@ class SimEnv:
                 pos=[0, 2, 0],
                 lookat=[0, 0, 0],
                 up=[0, 0, 1]), **args)
-        #------------TEST für achsen---------------------------
-        #print("\n========== VISUALIZATION DEBUG ==========")
-        #print("ROTATION:", rotation)
-        #print("SCALE:", scale)
-        #print("TRANSFORMED PIXELS:", pixels)
-        #print("PRETRANSFORM PIXELS:", retval['pretransform_pixels'])
-        #print("\n========== RETVAL PRETRANSFORM PIXELS======= def check_action")
-        #print(retval["pretransform_pixels"])
-        pix1, pix2 = retval['pretransform_pixels']      #Test Pixel bis Print out of bounds
-        for name, pix in [("P1", pix1), ("P2", pix2)]:
-
-            if (0 <= pix[0] < self.pretransform_depth.shape[0] and
-                    0 <= pix[1] < self.pretransform_depth.shape[1]):
-
-                d = self.pretransform_depth[pix[0], pix[1]]
-
-                #print(f"DEPTH400 {name}:", d)
-                #print(f"MASK400 {name}:", d < 1.99)
-
-            else:
-                pass
-                #print(f"{name} OUT OF BOUNDS:", pix)
-
-
         def get_action_visualization():
             return visualize_action(
                 action_primitive=action_primitive,
@@ -266,15 +241,6 @@ class SimEnv:
         # DEBUG: RGB vs DEPTH MASK OVERLAY
         # ============================================
         cloth_mask = (self.pretransform_depth < 1.99).astype(np.uint8)  # Test
-        vals = np.unique(np.round(self.pretransform_depth, 3))
-        #print("DEPTH VALUES:", vals[-20:])
-
-        #print("DEPTH MIN:", self.pretransform_depth.min())
-        #print("DEPTH MAX:", self.pretransform_depth.max())
-
-        #print("CLOTH PIXELS:", cloth_mask.sum(), "/", cloth_mask.size)
-
-        #print("DEPTH[0,0]:", self.pretransform_depth[0, 0])
 
         # ============================================
         # ORIGINAL CODE
@@ -297,50 +263,6 @@ class SimEnv:
                 'p1_grasp_cloth': cloth_mask[grasp_mask_1].all(),
                 'p2_grasp_cloth': cloth_mask[grasp_mask_2].all(),
             })
-            #TEST Grasp auf Cloth
-            #print("--------GRASP LOG--------")
-            #print("P1_GRASP_CLOTH:", retval['p1_grasp_cloth'])
-            #print("P2_GRASP_CLOTH:", retval['p2_grasp_cloth'])
-            #Test tr.mat 4 prints pix related
-            #print("PIX_1:", pix_1)
-            #print("PIX_2:", pix_2)
-
-            #print(
-            #    "DEPTH PIX_1:",
-            #    self.pretransform_depth[pix_1[0], pix_1[1]],
-            #    "MASK:",
-            #    cloth_mask[pix_1[0], pix_1[1]]
-            #)
-            #print(
-            #    "DEPTH PIX_1 SWAPPED:",
-            #    self.pretransform_depth[pix_1[1], pix_1[0]]
-            #)
-            #print(
-            #    "DEPTH PIX_2:",
-            #    self.pretransform_depth[pix_2[0], pix_2[1]],
-            #    "MASK:",
-            #    cloth_mask[pix_2[0], pix_2[1]]
-            #)
-            #print(
-            #    "DEPTH PIX_2 SWAPPED:",
-            #    self.pretransform_depth[pix_2[1], pix_2[0]]
-            #)
-            #print("PRETRANSFORM PIXELS:", retval['pretransform_pixels'])
-            #print("conservative_grasp_radius:", self.conservative_grasp_radius)
-            #print("\n--- MASK DEBUG ---")
-            #print("p1:", pix_1)
-            #print("p2:", pix_2)
-
-            #print("cloth_mask shape:", cloth_mask.shape)
-
-            #print("grasp_mask_1 sum:", grasp_mask_1.sum())
-            #print("grasp_mask_2 sum:", grasp_mask_2.sum())
-
-            #print("grasp_mask_1 shape:", grasp_mask_1.shape)
-            #print("grasp_mask_2 shape:", grasp_mask_2.shape)
-            #print("cloth pixels in grasp mask 1:", cloth_mask[grasp_mask_1].sum(), "/", grasp_mask_1.sum())
-            #print("cloth pixels in grasp mask 2:", cloth_mask[grasp_mask_2].sum(), "/", grasp_mask_2.sum())
-
         else:
             retval.update({
                 'p1_grasp_cloth': True,
@@ -352,10 +274,6 @@ class SimEnv:
                 and retval['p2_grasp_cloth']
         )
         # TODO can probably refactor so args to primitives have better variable names
-        #print("\n===== FINAL ACTION CHECK =====")
-        #print("valid_action before:", retval['valid_action'])
-        #print("p1_grasp_cloth:", retval['p1_grasp_cloth'])
-        #print("p2_grasp_cloth:", retval['p2_grasp_cloth'])
         return retval
 
     def fling_primitive(self, dist, fling_height, fling_speed):
@@ -653,33 +571,13 @@ class SimEnv:
         else:
             raise Exception(
                 f'Action Primitive not supported: {action_primitive}')
-        #---TEST rotation cam
-        #N = self.obs_dim
-        #p1 = np.array([p1[1], N - 1 - p1[0]])
-        #p2 = np.array([p2[1], N - 1 - p2[0]])
-        #--TEST ende
         return p1, p2
 
     def check_arm_reachability(self, arm_base, reach_pos):
-        #print("REACH LIMIT:", self.reach_distance_limit)    #Test
         return np.linalg.norm(arm_base - reach_pos) < self.reach_distance_limit
 
     def check_action_reachability(
             self, action: str, p1: np.array, p2: np.array):
-        #print("\n=== REACHABILITY DEBUG ===")       #TestBlock bis if action
-        #print("ACTION:", action)
-
-        #print("P1 WORLD:", p1)
-        #print("P2 WORLD:", p2)
-
-        #print("LEFT BASE:", self.left_arm_base)
-        #print("RIGHT BASE:", self.right_arm_base)
-
-        #print("DIST LEFT->P1:",
-        #      np.linalg.norm(p1 - self.left_arm_base))
-
-        #print("DIST RIGHT->P2:",
-        #      np.linalg.norm(p2 - self.right_arm_base))
         if action == 'fling' or action == 'stretchdrag':
             # right and left must reach each point respectively
             return self.check_arm_reachability(self.left_arm_base, p1) \
@@ -695,204 +593,6 @@ class SimEnv:
             else:
                 return False, None
         raise NotImplementedError()
-
-#    def get_max_value_valid_action(self, value_maps) -> dict:
-        #VERSION with endless candidates
-        stacked_value_maps = torch.stack(tuple(value_maps.values()))
-        print("STACKED SHAPE:", stacked_value_maps.shape)       #Test hoher Count
-        print("TOTAL ENTRIES:", stacked_value_maps.numel())     #Test hoher Count
-
-        # (**) filter out points too close to edge
-        stacked_value_maps = stacked_value_maps[
-            :, :,
-            self.pix_grasp_dist:-self.pix_grasp_dist,
-            self.pix_grasp_dist:-self.pix_grasp_dist]
-
-        # TODO make more efficient by creating index list,
-        # flattened value list, then sort and eliminate
-        sorted_values, _ = stacked_value_maps.flatten().sort(descending=True)
-        actions = list(value_maps.keys())
-        #print("\n===== VALUE MAP KEYS =====")
-        #print(list(value_maps.keys()))
-        print("\n===== MAX VALUE PER PRIMITIVE =====")  #Test primitive choice
-        for a in actions:
-            print(
-                f"{a:12s}",
-                value_maps[a].max().item()
-            )
-        candidate_counter = 0       #Test Counter
-        invalid_counter = 0         #Test Counter
-        self.best_p1_ratio = 0.0    #Test hoher Counter
-        self.best_p2_ratio = 0.0    #Test hoher Counter
-        for value in sorted_values:
-            #print("\n===================================") #Test
-            #print("TESTING NEW VALUE CANDIDATE")    #Test
-            #print("VALUE:", value.item())   #Test
-
-            for indices in np.array(np.where(stacked_value_maps == value)).T:
-                candidate_counter += 1      #Test Counter
-                if candidate_counter % 3000 == 0:       #Test Counter alle 3000#1000
-                    print("Candidates tested:", candidate_counter)
-                # Account for index of filtered pixels. See (**) above
-                indices[-2:] += self.pix_grasp_dist
-
-                max_indices = indices[1:]
-                x, y, z = max_indices
-                action = actions[indices[0]]
-                #print("\nACTION:", action)  #Test
-                #print("INDICES:", indices)  #Test
-                value_map = value_maps[action]
-                #print("VALUE MAP SHAPE:", value_map.shape)  # Test bis tuple(value_map.shape))
-                #print("BEST VALUE:", value_map.max().item())
-                flat_idx = value_map.argmax().item()
-                best_idx = np.unravel_index(
-                    flat_idx,
-                    tuple(value_map.shape)
-                )
-                #print("BEST INDEX:", best_idx)
-                reach_points = np.array(self.get_action_params(
-                    action_primitive=action,
-                    max_indices=(x, y, z)))
-                # if any point is outside domain, skip
-                if any(((p < 0).any() or (p >= self.obs_dim).any())
-                       for p in reach_points):
-                    continue
-                p1, p2 = reach_points[:2]
-                #print("NETWORK P1:", p1)    #Test
-                #print("NETWORK P2:", p2)    #Test
-                transformed_depth_64 = self.transformed_obs[x, 3, :, :].numpy() #Test
-                cloth_mask_64 = transformed_depth_64< 1.99 #Test
-                #print("NETWORK P1 ON CLOTH:", cloth_mask_64[p1[1], p1[0]]) #Test
-                #print("NETWORK P2 ON CLOTH:", cloth_mask_64[p2[1], p2[0]]) #Test
-                #print("DEPTH64 P1:", transformed_depth_64[p1[1], p1[0]])    #Test
-                #print("DEPTH64 P2:",transformed_depth_64[p2[1], p2[0]])     #Test
-                #print("NUM CLOTH PIXELS:", (transformed_depth_64 < 1.99).sum()) #Test
-                #print("DEPTH MIN:", transformed_depth_64.min())             #Test
-                #print("DEPTH MAX:", transformed_depth_64.max())             #Test
-                img64 = transformed_depth_64.copy()
-                #plt.imshow(cloth_mask_64)                                   #Test
-                #plt.scatter(p1[0], p1[1], c='red')                          #Test
-                #plt.scatter(p2[0], p2[1], c='blue')                         #Test
-                #plt.show()                                                  #Test
-                action_mask = torch.zeros(value_map.size()[1:])
-                action_mask[y, z] = 1
-                num_scales = len(self.adaptive_scale_factors)
-                rotation_idx = x // num_scales
-                scale_idx = x - rotation_idx * num_scales
-                scale = self.adaptive_scale_factors[scale_idx]
-                rotation = self.rotations[rotation_idx]
-                action_kwargs = {
-                    'observation': self.transformed_obs[x, ...],
-                    'action_primitive': action,
-                    'p1': p1,
-                    'p2': p2,
-                    'scale': scale,
-                    'rotation': rotation,
-                    'max_indices': max_indices,
-                    'action_mask': action_mask,
-                    'value_map': value_map[x, :, :],
-                    'all_value_maps': value_map,
-                    'info': None
-                }
-                action_kwargs.update({
-                    'transformed_depth':
-                    action_kwargs['observation'][3, :, :].numpy(),
-                    'transformed_rgb':
-                    action_kwargs['observation'][:3, :, :].numpy(),
-                })
-                action_params = self.check_action(
-                    pixels=np.array([p1, p2]),
-                    **action_kwargs)
-                if not action_params['valid_action']:
-                    invalid_counter += 1      #Test Counter
-                    continue
-                reachable, left_or_right = self.check_action_reachability(
-                    action=action,
-                    p1=action_params['p1'],
-                    p2=action_params['p2'])
-                #print("reachable:", reachable)  #Test
-                if action == 'place' or action == 'drag':
-                    action_kwargs['left_or_right'] = left_or_right
-
-                if action == 'stretchdrag':
-                    left_start_drag_pos = action_params['p1']
-                    right_start_drag_pos = action_params['p2']
-                    left_start_drag_pos[1] = self.grasp_height
-                    right_start_drag_pos[1] = self.grasp_height
-
-                    # compute drag direction
-                    drag_direction = np.cross(
-                        left_start_drag_pos - right_start_drag_pos,
-                        np.array([0, 1, 0]))
-                    drag_direction = self.stretchdrag_dist * \
-                        drag_direction / np.linalg.norm(drag_direction)
-
-                    left_end_drag_pos = left_start_drag_pos + drag_direction
-                    right_end_drag_pos = right_start_drag_pos + drag_direction
-
-                    final_drag_reachable =\
-                        self.check_arm_reachability(
-                            self.left_arm_base, left_end_drag_pos)\
-                        and self.check_arm_reachability(
-                            self.right_arm_base, right_end_drag_pos)
-                    reachable = final_drag_reachable and reachable
-
-                if not reachable:
-                    print("REJECTED: unreachable")  #Test
-                    continue
-                action_kwargs['action_visualization'] =\
-                    action_params['get_action_visualization_fn']()
-                self.log_step_stats(action_kwargs)
-
-                #an_tr_mo_4 Änderung
-                # ============================================
-                # Preserve pixel grasps for middleware/socket
-                # ============================================
-
-                pixels = action_params['pretransform_pixels'] #an_tr
-                # ============================================
-                # Remove internal-only keys before primitive execution
-                # ============================================
-
-                for k in ['valid_action',
-                          'pretransform_pixels',
-                          'get_action_visualization_fn']:
-                    del action_params[k]
-                # ============================================
-                # Create middleware copy
-                # ============================================
-
-                middleware_action = action_params.copy()
-
-                middleware_action['pretransform_pixels'] = pixels
-
-                #Test-----------
-                print("\nACCEPTED ACTION")
-                #print("primitive:", action_kwargs['action_primitive'])
-                print("MIDDLEWARE-pixels:", middleware_action['pretransform_pixels'])
-                #print("\nRETVAL PRETRANSFORM PIXELS:", retval["pretransform_pixels"])
-                #print("\nTRANSFORMED PIXELS:", pixels)
-                #---------------
-                print("\n===== VALID ACTION FOUND =====")       #Test Counter bis P2
-                print("Candidates tested:", candidate_counter)
-                print("Rejected candidates:", invalid_counter)
-                print("BEST P1 RATIO SEEN:", self.best_p1_ratio)    #Test höhe counter
-                print("BEST P2 RATIO SEEN:", self.best_p2_ratio)
-
-                print("NETWORK P1:", p1)
-                print("NETWORK P2:", p2)
-
-                print("PRETRANSFORM:", middleware_action['pretransform_pixels'])
-                print("P1_GRASP_CLOTH:", middleware_action['p1_grasp_cloth'])
-                print("P2_GRASP_CLOTH:", middleware_action['p2_grasp_cloth'])
-                print("\n===== ACTION TYPE =====")
-                print("PRIMITIVE:", action_kwargs['action_primitive'])
-                #print("PRIMITIVE CHANNEL:", indices[0])
-                print("VALUE:", value.item())
-                return action_kwargs['action_primitive'], middleware_action
-                #OG teil:
-                #return action_kwargs['action_primitive'], action_params
-        return None, None
 
     def get_max_value_valid_action(self, value_maps) -> dict:
         #Candidate search minimized
@@ -915,8 +615,6 @@ class SimEnv:
             )
         candidate_counter = 0       #Test Counter
         invalid_counter = 0         #Test Counter
-        self.best_p1_ratio = 0.0    #Test hoher Counter
-        self.best_p2_ratio = 0.0    #Test hoher Counter
 
         # ============================================
         # ORIGINAL (has O(ties^2) blowup when many
@@ -969,11 +667,6 @@ class SimEnv:
             x, y, z = max_indices
             action = actions[indices[0]]
             value_map = value_maps[action]
-            flat_idx = value_map.argmax().item()
-            best_idx = np.unravel_index(
-                flat_idx,
-                tuple(value_map.shape)
-            )
             reach_points = np.array(self.get_action_params(
                 action_primitive=action,
                 max_indices=(x, y, z)))
@@ -982,9 +675,6 @@ class SimEnv:
                    for p in reach_points):
                 continue
             p1, p2 = reach_points[:2]
-            transformed_depth_64 = self.transformed_obs[x, 3, :, :].numpy()
-            cloth_mask_64 = transformed_depth_64 < 1.99
-            img64 = transformed_depth_64.copy()
             action_mask = torch.zeros(value_map.size()[1:])
             action_mask[y, z] = 1
             num_scales = len(self.adaptive_scale_factors)
@@ -1076,8 +766,6 @@ class SimEnv:
             print("\n===== VALID ACTION FOUND =====")
             print("Candidates tested:", candidate_counter)
             print("Rejected candidates:", invalid_counter)
-            print("BEST P1 RATIO SEEN:", self.best_p1_ratio)
-            print("BEST P2 RATIO SEEN:", self.best_p2_ratio)
             print("NETWORK P1:", p1)
             print("NETWORK P2:", p2)
             print("PRETRANSFORM:", middleware_action['pretransform_pixels'])
@@ -1204,40 +892,10 @@ class SimEnv:
             if step % 4 == 0 and self.dump_visualizations:
                 if 'top' not in self.env_video_frames:
                     self.env_video_frames['top'] = []
-                #--TEST rotation cam------
                 frame = np.squeeze(np.array(get_image()[0]))
-                #if getattr(self, "stream_full_video", True):                #to switch between video and img_old _ now in an_tr..final.py
-                # --- CLOTH-ONLY MASK (excludes background + grippers, keeps cloth incl. shadowed cloth) GRIPPER COLOR---
-                    #hsv = cv2.cvtColor(frame, cv2.COLOR_RGB2HSV)
-                    #saturation = hsv[:, :, 1]
-                    #value = hsv[:, :, 2]
-
-                    #is_cloth = (saturation > 40) & (value > 20)  # 0-255 scale in cv2 HSV
-                    #frame = np.where(is_cloth[:, :, None], frame, 0)
-                # --- END MASK ---
-                #    frame = np.rot90(frame, k=-1)
-                #-FRAME STRUCTURE----
-                #    h, w, c = frame.shape
-
-                #    header = struct.pack("!III",h,w,c)
-                #    if hasattr(self, "frame_socket"):
-                        #print("[FRAME] sending header")
-                #        self.frame_socket.sendall(header)
-                        #print("[FRAME] header sent")
-                        #print("[FRAME] sending image")
-                #        self.frame_socket.sendall(frame.tobytes())
-                        #print("[FRAME] image sent")
-                    #print(f"[FRAME SENT] {frame.shape}")
-                #--------------------
-                #-------- new for switch vid-img-----
                 if getattr(self, "stream_full_video", False) and hasattr(self, "_send_topdown_frame"):   #not True so eval works
                     self._send_topdown_frame(frame)
-                #----------
-                #self.env_video_frames['top'].append(frame) #OG before switch
                 self.env_video_frames['top'].append(np.rot90(frame, k=-1))
-                #---Test Ende-----
-            #self.env_video_frames['top'].append(
-            #        np.squeeze(np.array(get_image()[0])))      #OG
         raise MoveJointsException
 
     def reset_end_effectors(self):
@@ -1250,33 +908,6 @@ class SimEnv:
             self.grasp_states = grasp
         else:
             raise Exception()
-
-    # def on_episode_end(self, log=False):
-    #     if self.dump_visualizations and len(self.episode_memory) > 0:
-    #         while True:
-    #             hashstring = hashlib.sha1()
-    #             hashstring.update(str(time()).encode('utf-8'))
-    #             vis_dir = self.log_dir + '/' + hashstring.hexdigest()[:10]
-    #             if not os.path.exists(vis_dir):
-    #                 break
-    #         os.mkdir(vis_dir)
-    #         for key, frames in self.env_video_frames.items():
-    #             if len(frames) == 0:
-    #                 continue
-    #             path = f'{vis_dir}/{key}.mp4'
-    #             with imageio.get_writer(path, mode='I', fps=24) as writer:
-    #                 for frame in (
-    #                     frames if not log
-    #                         else tqdm(frames, desc=f'Dumping {key} frames')):
-    #                     writer.append_data(frame)
-    #         self.episode_memory.add_value(
-    #             key='visualization_dir',
-    #             value=vis_dir)
-    #     self.env_video_frames.clear()
-    #     self.episode_memory.dump(
-    #         self.replay_buffer_path)
-    #     del self.episode_memory
-    #     self.episode_memory = Memory()
 
     import cv2
     def on_episode_end(self, log=False):
@@ -1314,12 +945,6 @@ class SimEnv:
                     cv2.COLOR_RGB2BGR
                 )
 
-                #cv2.imwrite(                   #Auskommentiert altes REAL_AFTER
-                #    f"socket_eval/step_{self.current_step_id:03d}_REAL_AFTER.png",
-                #    self.last_after_rgb
-                #)
-                #print("REAL AFTER SAVED")
-                #------TEST ENDE ------------
                 path = os.path.join(vis_dir, f'{key}.mp4')
                 height, width, _ = frames[0].shape
 
@@ -1332,7 +957,6 @@ class SimEnv:
                 for frame in (frames if not log else tqdm(frames, desc=f'Dumping {key} frames')):
                     # Convert from RGB to BGR (OpenCV uses BGR)
                     bgr_frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-                    #bgr_frame = cv2.rotate(bgr_frame, cv2.ROTATE_90_CLOCKWISE) #IMG ROTATION
                     out.write(bgr_frame)
 
                 out.release()
