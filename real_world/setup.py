@@ -12,6 +12,15 @@ MAX_GRASP_WIDTH = 0.6
 MIN_UR5_BASE_SAFETY_RADIUS = 0.3
 # workspace pixel crop
 WS_PC = [30, -165, 385, -370]
+# GEMSORT: annotated on our own cell with `python -m real_world.gemsort_calibrate --workspace`.
+try:
+    import json as _json, pathlib as _pathlib
+    _cal = _json.loads((_pathlib.Path(__file__).with_name('gemsort_calibration.json')).read_text())
+    if 'ws_pc' in _cal:
+        WS_PC = list(_cal['ws_pc'])
+        print(f'[gemsort] workspace crop from gemsort_calibration.json: {WS_PC}')
+except Exception:
+    pass
 
 UR5_VELOCITY = 0.5
 UR5_ACCELERATION = 0.3

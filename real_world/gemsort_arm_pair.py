@@ -25,9 +25,27 @@ logger = logging.getLogger(__name__)
 # Observation pose: Bernoulli holds the RealSense centred over the table looking straight down. The joint values must be
 # TAUGHT on the real robot (jog into place, read q, paste here); the world target is what they have to achieve.
 CAMERA_TARGET_WORLD = dict(x=1.4, y=1.0, z=2.0, look='down')  # CAM_POS_X/Y/Z in gemsort_lib/flingbot_config.py
-CAMERA_POSE_ARM = None      # np.ndarray (7,) Bernoulli joint angles — TEACH ME
-CAMERA_POSE_RAIL = None     # (rail_x, rail_y) for Bernoulli — TEACH ME
-PARK_POSE_ARM = None        # Pascal joints while the camera observes (out of view) — TEACH ME
+CAMERA_POSE_ARM = None      # Bernoulli (RIGHT) joint angles — taught with gemsort_calibrate --save-camera-pose
+CAMERA_POSE_RAIL = None     # (rail_x, rail_y) for Bernoulli
+PARK_POSE_ARM = None        # Pascal (LEFT) joints while the camera observes (out of view)
+PARK_POSE_RAIL = None
+
+
+def _load_camera_pose():
+    """Read the taught observation pose from real_world/gemsort_calibration.json (written by gemsort_calibrate)."""
+    global CAMERA_POSE_ARM, CAMERA_POSE_RAIL, PARK_POSE_ARM, PARK_POSE_RAIL
+    import json, pathlib
+    try:
+        pose = json.loads(pathlib.Path(__file__).with_name('gemsort_calibration.json').read_text())['camera_pose']
+    except Exception:
+        return False
+    CAMERA_POSE_ARM = np.asarray(pose['arm'], float);CAMERA_POSE_RAIL = np.asarray(pose['rail'], float)
+    PARK_POSE_ARM = np.asarray(pose.get('park_arm'), float) if pose.get('park_arm') is not None else None
+    PARK_POSE_RAIL = np.asarray(pose.get('park_rail'), float) if pose.get('park_rail') is not None else None
+    return True
+
+
+_load_camera_pose()
 
 
 class MotionPlanningError(RuntimeError):
@@ -220,10 +238,13 @@ class GemsortArmPair:
     # ---------------------------------------------------------------- gemsort extras
     def go_to_camera_pose(self):
         """Park Bernoulli so the wrist RealSense looks straight down at the table centre, Pascal out of view."""
+        _load_camera_pose()
         if CAMERA_POSE_ARM is None or CAMERA_POSE_RAIL is None:
-            raise RuntimeError('CAMERA_POSE_ARM / CAMERA_POSE_RAIL are not taught yet — jog the cell and fill them in')
+            raise RuntimeError('no observation pose taught yet — jog Bernoulli over the table and run '
+                               '`python -m real_world.gemsort_calibrate --save-camera-pose` (or the GUI button)')
         from gemsort_lib.flingbot_config import LIN_AXIS_X_L_HOME, LIN_AXIS_Y_HOME
-        self.bot.move_linear_axes(tuple(CAMERA_POSE_RAIL), (LIN_AXIS_X_L_HOME, LIN_AXIS_Y_HOME), self.move_duration)
+        park_rail = tuple(PARK_POSE_RAIL) if PARK_POSE_RAIL is not None else (LIN_AXIS_X_L_HOME, LIN_AXIS_Y_HOME)
+        self.bot.move_linear_axes(tuple(CAMERA_POSE_RAIL), park_rail, self.move_duration)
         park = PARK_POSE_ARM if PARK_POSE_ARM is not None else CAMERA_POSE_ARM
         self.bot.move_arms_sync(np.asarray(CAMERA_POSE_ARM, float), np.asarray(park, float), self.move_duration)
 
@@ -262,11 +283,15 @@ def main():
     p = argparse.ArgumentParser(description='GEMSORT arm pair helper for the FlingBot real-world stack')
     p.add_argument('--camera-pose', action='store_true', help='move Bernoulli into the overhead RealSense pose')
     p.add_argument('--home', action='store_true', help='move both arms to the home pose')
+    p.add_argument('--save-camera-pose', action='store_true', help='store the CURRENT pose as the observation pose')
     args = p.parse_args()
     logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
     pair = GemsortArmPair()
     if args.home:
         pair.homej()
+    if args.save_camera_pose:
+        from real_world.gemsort_calibrate import save_camera_pose
+        save_camera_pose(pair)
     if args.camera_pose:
         pair.go_to_camera_pose()
     logger.info('done')

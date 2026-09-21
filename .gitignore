@@ -137,3 +137,6 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# GEMSORT cell calibration (workspace box + taught camera pose) — machine specific
+real_world/gemsort_calibration.json
