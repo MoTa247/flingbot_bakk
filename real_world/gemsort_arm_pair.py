@@ -54,22 +54,30 @@ class GemsortArmPair:
     [left, right] exactly like UR5Pair. Poses are 6-D (xyz + axis-angle) for movel and joint vectors for movej.
     """
 
-    def __init__(self, controller=None, grippers=None, move_duration=3.0):
+    def __init__(self, controller=None, grippers=None, move_duration=3.0, sim=None):
         if controller is None:
-            controller, grippers = connect()
+            import os
+            sim = (os.environ.get('GEMSORT_SIM', '0') == '1') if sim is None else sim
+            controller, grippers = connect(sim=sim)
         self.bot = controller
         self.grippers = grippers
         self.move_duration = move_duration
         self.left = controller.left
         self.right = controller.right
         self._planner = None      # (Industrial18DOFPlanner, GemSortEnvironment, indices), built on first Cartesian move
-        self._last_state = None
+        self._target = None       # last commanded {q_l, q_r, lin_l, lin_r}, for all_ur5s_reached_target
 
     # ---------------------------------------------------------------- UR5Pair API
-    def all_ur5s_reached_target(self):
+    def all_ur5s_reached_target(self, tol=.01, rail_tol=.005):
+        """True when both arms and both rails are within tolerance of the last commanded target.
+        (snapshot_robot_state reports q/rail positions, not velocities, so we compare against the command.)"""
         from gemsort_lib.flingbot_controller import snapshot_robot_state
-        state = snapshot_robot_state(self.bot)
-        return bool(np.all(np.abs(state.get('velocity', np.zeros(1))) < 1e-3)) if isinstance(state, dict) else True
+        if self._target is None:
+            return True
+        now = snapshot_robot_state(self.bot);want = self._target
+        return (np.max(np.abs(now['q_l'] - want['q_l'])) < tol and np.max(np.abs(now['q_r'] - want['q_r'])) < tol
+                and np.max(np.abs(now['lin_l'] - want['lin_l'])) < rail_tol
+                and np.max(np.abs(now['lin_r'] - want['lin_r'])) < rail_tol)
 
     def homej(self, blocking=True, **kwargs):
         from gemsort_lib.flingbot_config import DEFAULT_POSE_R, LIN_AXIS_X_R_HOME, LIN_AXIS_X_L_HOME, LIN_AXIS_Y_HOME
@@ -146,7 +154,8 @@ class GemsortArmPair:
         finish_times = execute_optimized_trajectory(self.bot, traj)
         wait_for_robots(self.bot, finish_times)
         sync_planning_env_to_robot(env, self.bot, indices)
-        self._last_state = snapshot_robot_state(self.bot)
+        self._target = dict(q_l=np.asarray(traj['q_l'][-1], float), q_r=np.asarray(traj['q_r'][-1], float),
+                            lin_l=np.asarray(traj['lin_l'][-1], float), lin_r=np.asarray(traj['lin_r'][-1], float))
         logger.info('%s done', label)
         return True
 
@@ -190,14 +199,32 @@ class GemsortArmPair:
         self.bot.move_arms_sync(np.asarray(CAMERA_POSE_ARM, float), np.asarray(park, float), self.move_duration)
 
 
-def connect(sim=False):
-    """(FlingBotController, DualGripperManager) on the real cell; import-time heavy, hence lazy."""
+def side_config(side, sim):
+    """Same connection config move_flingbot.get_side_config builds (ports/IPs from gemsort_lib.flingbot_config)."""
+    from gemsort_lib import flingbot_config as cfg
+    if sim:
+        ports = (cfg.SIM_PORT_IIWA_L, cfg.SIM_PORT_RAIL_L) if side == 'left' else (cfg.SIM_PORT_IIWA_R, cfg.SIM_PORT_RAIL_R)
+        local = robot_ip = cfg.LOCAL_IP
+    else:
+        ports = (cfg.PORT_IIWA_L, cfg.PORT_RAIL_L) if side == 'left' else (cfg.PORT_IIWA_R, cfg.PORT_RAIL_R)
+        local = cfg.REAL_LOCAL_IP_LEFT if side == 'left' else cfg.REAL_LOCAL_IP_RIGHT
+        robot_ip = cfg.REAL_ROBOT_IP_LEFT if side == 'left' else cfg.REAL_ROBOT_IP_RIGHT
+    iiwa, laxis = ports
+    return {'local_ip_addr': local, 'robot_ip_addr': robot_ip,
+            'iiwa': {'robot_port': iiwa[0], 'client_port': iiwa[1]},
+            'laxis': {'robot_port': laxis[0], 'client_port': laxis[1]}}
+
+
+def connect(sim=False, real_grippers=True, planner_env=None):
+    """(FlingBotController, DualGripperManager) for the GEMSORT cell; import-time heavy, hence lazy."""
     from arcpy.robots import Robot18DOF
     from gemsort_lib.flingbot_controller import FlingBotController
     from gemsort_lib.flingbot_gripper import DualGripperManager
-    robot = Robot18DOF(None if sim else {})
+    robot = Robot18DOF({'left': side_config('left', sim), 'right': side_config('right', sim)})
     controller = FlingBotController(robot)
-    grippers = DualGripperManager(None, simulation_left=sim, simulation_right=sim)
+    grippers = DualGripperManager(planner_env, simulation_left=sim, simulation_right=sim,
+                                  use_real_gripper_left=real_grippers and not sim,
+                                  use_real_gripper_right=real_grippers and not sim)
     controller.attach_grippers(grippers)
     return controller, grippers
 

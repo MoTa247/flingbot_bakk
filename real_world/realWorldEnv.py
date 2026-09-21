@@ -84,7 +84,14 @@ class RealWorldEnv(SimEnv):
         # with a better view of both arms
         self.setup_cam = None
 
-        self.ur5_pair = UR5Pair()
+        # GEMSORT: two rail-mounted iiwa (2 x 9 DoF) instead of two UR5s. Set GEMSORT_ROBOTS=0 to fall back to the
+        # original UR5 backend; everything below keeps calling the same UR5Pair API.
+        import os
+        if os.environ.get('GEMSORT_ROBOTS', '1') == '1':
+            from real_world.gemsort_arm_pair import GemsortArmPair
+            self.ur5_pair = GemsortArmPair()
+        else:
+            self.ur5_pair = UR5Pair()
         self.ur5_pair.open_grippers()
         self.ur5_pair.out_of_the_way()
         self.top_cam_right_ur5_pose = np.loadtxt(
