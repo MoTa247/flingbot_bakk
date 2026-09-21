@@ -49,7 +49,14 @@ def get_ur5s():
 
 
 def get_top_cam():
-    return KinectClient()
+    # GEMSORT: our overhead camera is the RealSense on Bernoulli's wrist; the backend and its settings come from
+    # real_world/gemsort_calibration.json ("camera"), set from the GUI. Falls back to FlingBot's Kinect client.
+    try:
+        from real_world.gemsort_camera import make_camera
+        return make_camera()
+    except Exception as error:
+        print(f'[gemsort] configured camera unavailable ({error}); falling back to KinectClient')
+        return KinectClient()
 
 
 def get_front_cam():

@@ -72,17 +72,68 @@ def save_camera_pose(pair=None):
     return data
 
 
+def set_camera(kind, serial=None, ip=None, port=None, width=None, height=None):
+    from real_world.gemsort_camera import DEFAULT
+    config = {**DEFAULT, 'type': kind}
+    for key, value in (('serial', serial), ('ip', ip), ('port', port), ('width', width), ('height', height)):
+        if value not in (None, ''):
+            config[key] = value
+    save(dict(camera=config));return config
+
+
+def check():
+    """Everything the real run needs, with the fix for each missing piece. Returns True when nothing is missing."""
+    import importlib.util, shutil
+    rows = []
+    for module, fix in (('ray', 'pip install ray'), ('torch', 'pip install torch'), ('cv2', 'pip install opencv-python'),
+                        ('h5py', 'pip install h5py'), ('filelock', 'pip install filelock'),
+                        ('tensorboardX', 'pip install tensorboardX'), ('pyrealsense2', 'pip install pyrealsense2')):
+        rows.append((f'python module {module}', importlib.util.find_spec(module) is not None, fix))
+    for module, fix in (('arcpy', 'run inside the `arc` conda env'), ('gemsort_lib', 'run from the repo root')):
+        rows.append((f'gemsort module {module}', importlib.util.find_spec(module) is not None, fix))
+    data = load()
+    rows.append(('workspace box annotated', 'ws_pc' in data, 'GUI: Annotate workspace box'))
+    rows.append(('camera pose taught', 'camera_pose' in data, 'GUI: Save camera pose (Bernoulli)'))
+    rows.append(('camera configured', 'camera' in data, 'GUI: camera dropdown'))
+    try:  # probe the device directly: importing real_world.* would drag in FlingBot's deps (ray) as well
+        import pyrealsense2 as rs
+        devices = [(d.get_info(rs.camera_info.serial_number), d.get_info(rs.camera_info.name)) for d in rs.context().devices]
+        rows.append((f'RealSense detected ({devices[0][1] if devices else "none connected"})', bool(devices),
+                     'plug the wrist camera in / check udev permissions'))
+    except Exception as error:
+        rows.append((f'RealSense probe failed: {error}', False, 'pip install pyrealsense2'))
+    missing = 0
+    for name, ok, fix in rows:
+        print(f'  [{"OK " if ok else "!! "}] {name}' + ('' if ok else f'   → {fix}'))
+        missing += 0 if ok else 1
+    print('all good' if not missing else f'{missing} item(s) missing')
+    return missing == 0
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument('--workspace', action='store_true', help='annotate the workspace bounding box on a live frame')
     p.add_argument('--save-camera-pose', action='store_true', help='store the current robot pose as the observation pose')
     p.add_argument('--show', action='store_true', help='print the stored calibration')
+    p.add_argument('--check', action='store_true', help='check dependencies, calibration and camera')
+    p.add_argument('--camera', choices=('realsense_local', 'kinect', 'realsense_tcp'), help='select the top camera')
+    p.add_argument('--serial');p.add_argument('--ip');p.add_argument('--port', type=int)
+    p.add_argument('--width', type=int);p.add_argument('--height', type=int)
+    p.add_argument('--list-cameras', action='store_true', help='list connected RealSense devices')
     args = p.parse_args()
+    if args.list_cameras:
+        from real_world.gemsort_camera import list_realsense
+        for serial, name in list_realsense():
+            print(f'  {serial or "-"}  {name}')
+    if args.camera:
+        print('camera:', set_camera(args.camera, args.serial, args.ip, args.port, args.width, args.height))
+    if args.check:
+        check()
     if args.workspace:
         annotate_workspace()
     if args.save_camera_pose:
         save_camera_pose()
-    if args.show or not (args.workspace or args.save_camera_pose):
+    if args.show or not (args.workspace or args.save_camera_pose or args.check or args.camera or args.list_cameras):
         print(json.dumps(load(), indent=1) if FILE.exists() else f'no calibration yet ({FILE})')
 
 
