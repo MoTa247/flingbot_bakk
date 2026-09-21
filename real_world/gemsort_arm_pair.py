@@ -66,6 +66,7 @@ class GemsortArmPair:
         self.right = controller.right
         self._planner = None      # (Industrial18DOFPlanner, GemSortEnvironment, indices), built on first Cartesian move
         self._target = None       # last commanded {q_l, q_r, lin_l, lin_r}, for all_ur5s_reached_target
+        self.preview = None       # latest camera frame, set by RealWorldEnv for the confirmation window
 
     # ---------------------------------------------------------------- UR5Pair API
     def all_ur5s_reached_target(self, tol=.01, rail_tol=.005):
@@ -96,8 +97,9 @@ class GemsortArmPair:
         all checked before anything is commanded (Industrial18DOFPlanner._validate_final_trajectory); a colliding or
         unreachable target raises MotionPlanningError instead of moving.
         """
+        preview = kwargs.pop('preview', None) if 'preview' in kwargs else getattr(self, 'preview', None)
         traj = self.plan(params, mode=kwargs.pop('mode', 'cartesian'), label=kwargs.pop('label', 'movel'))
-        return self.execute(traj, label='movel')
+        return self.execute(traj, label='movel', preview=preview)
 
     # ---------------------------------------------------------------- planning / collision checking
     def plan(self, params, mode='cartesian', label='move', steps=None):
@@ -147,10 +149,25 @@ class GemsortArmPair:
         except Exception as error:  # IK/solver failures are also 'not reachable'
             return False, f'planner error: {error!r}'
 
-    def execute(self, traj, label='move'):
+    def execute(self, traj, label='move', preview=None):
+        """Command a planned trajectory, after applying the safety levers (gemsort_viz.levers):
+        GEMSORT_SPEED_SCALE stretches the trajectory timing, GEMSORT_DRY_RUN skips execution entirely and
+        GEMSORT_CONFIRM waits for the operator's go in the OpenCV window."""
         from gemsort_lib.flingbot_controller import (execute_optimized_trajectory, wait_for_robots,
                                                      sync_planning_env_to_robot, snapshot_robot_state)
+        from real_world import gemsort_viz
         planner, env, indices = self.planner()
+        state = gemsort_viz.levers()
+        traj = self._scale_speed(traj, state['speed'])
+        seconds = float(np.asarray(traj['times'])[-1] - np.asarray(traj['times'])[0])
+        status = f"{label}: {seconds:.1f} s at speed {state['speed']:.2f}"
+        if not gemsort_viz.confirm(preview, status=status):
+            logger.warning('%s aborted by operator', label)
+            return False
+        if state['dry_run']:
+            logger.warning('%s NOT executed (GEMSORT_DRY_RUN=1); plan was collision-checked and would take %.1f s',
+                           label, seconds)
+            return True
         finish_times = execute_optimized_trajectory(self.bot, traj)
         wait_for_robots(self.bot, finish_times)
         sync_planning_env_to_robot(env, self.bot, indices)
@@ -158,6 +175,18 @@ class GemsortArmPair:
                             lin_l=np.asarray(traj['lin_l'][-1], float), lin_r=np.asarray(traj['lin_r'][-1], float))
         logger.info('%s done', label)
         return True
+
+    @staticmethod
+    def _scale_speed(traj, scale):
+        """Stretch the planned timing (scale 0.2 ⇒ five times slower). Joint/rail waypoints are unchanged, so the
+        path — and therefore its collision clearance — stays exactly as validated."""
+        if scale >= .999 or 'times' not in traj:
+            return traj
+        out = dict(traj);out['times'] = (np.asarray(traj['times'], float) / max(scale, 1e-3)).tolist()
+        for key in ('qd_r', 'qd_l', 'lind_r', 'lind_l'):  # velocities, if the generator provided them
+            if key in traj and traj[key] is not None:
+                out[key] = (np.asarray(traj[key], float) * scale).tolist()
+        return out
 
     def planner(self):
         """Lazily build the MuJoCo planning model (both arms + gripper + TABLE) and the 18-DoF planner."""

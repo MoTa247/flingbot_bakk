@@ -121,6 +121,28 @@ class RealWorldEnv(SimEnv):
         if iou > 1 - 1e-1:
             self.terminate = True
 
+    def get_max_value_valid_action(self, value_maps):
+        """GEMSORT: same choice as FlingBot, but draw it on the live camera image first and let the operator gate it.
+
+        Shows the predicted grasp pair (pretransform pixels, i.e. the frame self.pretransform_rgb is in) over the
+        value map. With GEMSORT_CONFIRM=1 an aborted action returns (None, None), which FlingBot treats as "no action".
+        """
+        from real_world import gemsort_viz
+        action_primitive, action = super().get_max_value_valid_action(value_maps)
+        if action is None:
+            gemsort_viz.show(getattr(self, 'pretransform_rgb', None), status='no valid action found')
+            return action_primitive, action
+        pixels = np.array(action.get('pretransform_pixels', []), dtype=float).reshape(-1, 2)[:, ::-1]  # (row, col) → (x, y)
+        status = f"step {self.current_timestep}: {action_primitive}, scale {action.get('scale', float('nan')):.2f}"
+        if not gemsort_viz.confirm(getattr(self, 'pretransform_rgb', None), status=status,
+                                   grasp_pixels=pixels if len(pixels) == 2 else None,
+                                   value_map=np.asarray(action.get('value_map')) if action.get('value_map') is not None else None):
+            print('\t[GEMSORT] action aborted by operator')
+            return None, None
+        # the backend shows this frame in its confirmation window (plain attribute: harmless for the UR5 fallback)
+        self.ur5_pair.preview = getattr(self, 'pretransform_rgb', None)
+        return action_primitive, action
+
     def step(self, value_maps):
         # NOTE: negative current_timestep's
         # act as error codes
