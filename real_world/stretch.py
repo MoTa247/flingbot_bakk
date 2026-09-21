@@ -142,6 +142,7 @@ def is_cloth_stretched(
 
 def stretch(ur5_pair, front_camera, height: float, grasp_width: float,
             max_grasp_width=0.6, stretch_factor=1.2):
+    # Shared-UR5 frame waypoints, like fling.py -- see real_world/setup.py "reference frames".
     from .setup import DEFAULT_ORN, DIST_UR5
     # Hardcoded stretch target: stop once the gripper-to-gripper distance
     # reaches `stretch_factor` times the width they started at (i.e. the

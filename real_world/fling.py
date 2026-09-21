@@ -1,4 +1,12 @@
-from .setup import DEFAULT_ORN, WORKSPACE_SURFACE, DIST_UR5
+"""Upstream FlingBot fling motion, in the SHARED-UR5 frame (see real_world/setup.py "reference frames").
+
+Every waypoint literal below -- dx from DIST_UR5, the +/-back_dist / +/-touchdown y offsets, and the heights relative
+to WORKSPACE_SURFACE -- assumes two UR5s straddling the origin with the table at -0.15. GEMSORT's cage world frame is
+different (table top at +TABLE_Z, arms separated along x), so this module is NOT usable as-is on the GEMSORT cell;
+RealWorldEnv.pick_and_fling_primitive refuses to reach it while GEMSORT_ROBOTS=1.
+"""
+from .setup import DEFAULT_ORN, DIST_UR5
+from .setup import UR5_FRAME_WORKSPACE_SURFACE as WORKSPACE_SURFACE
 
 
 def fling(ur5_pair,
