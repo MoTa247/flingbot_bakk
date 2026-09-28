@@ -9,8 +9,12 @@ from os import devnull
 import subprocess
 import os
 import imageio
-import OpenEXR
-from Imath import PixelType
+try:
+    import OpenEXR
+    from Imath import PixelType
+except ImportError:
+    OpenEXR = None
+    PixelType = None
 import random
 import cv2
 from scipy import ndimage as nd
