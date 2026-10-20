@@ -148,7 +148,7 @@ def setup_envs(dataset, num_processes=16, **kwargs):
         repeat=not kwargs['eval'])
     
     envs = [ray.remote(SimEnv).options(
-        num_gpus=1,
+        num_gpus=1 / num_processes,
         num_cpus=0.1).remote(
         replay_buffer_path=dataset,
         get_task_fn=lambda: ray.get(task_loader.get_next_task.remote()),
