@@ -740,6 +740,33 @@ class _DryRunController:
         raise RuntimeError(f'dry-run attempted forbidden robot-controller operation {name!r}')
 
 
+def _simulator_shadow(simulation_left, simulation_right):
+    """Open a second, write-only connection set pointing at the MuJoCo simulator.
+
+    Only sides driving REAL hardware get a shadow. A side already in simulated mode is talking to the simulator
+    directly, and opening a second connection to the same endpoints would collide on its client port -- so those
+    are left out rather than double-driven.
+
+    A shadow that cannot be opened (simulator not running, port busy) is dropped with a warning: mirroring is a
+    view onto the real motion and must never be able to prevent it.
+    """
+    from arcpy.robots import Robot9DOF
+    shadow = {}
+    for side, simulated in (('left', simulation_left), ('right', simulation_right)):
+        if simulated:
+            logger.info('[Mirror] %s already drives the simulator; not mirroring it.', side)
+            shadow[side] = None
+            continue
+        try:
+            shadow[side] = Robot9DOF(side_config(side, sim=True))
+            logger.info('[Mirror] %s trajectories will also be sent to the simulator.', side)
+        except Exception as error:
+            logger.warning('[Mirror] no simulator connection for %s (%s); that side will not be mirrored. '
+                           'Is simulate_gemsort.py running?', side, error)
+            shadow[side] = None
+    return shadow if any(shadow.values()) else None
+
+
 def connect(sim=None, real_grippers=True, planner_env=None,
             simulation_left=None, simulation_right=None):
     """(FlingBotController, DualGripperManager) for the GEMSORT cell; import-time heavy, hence lazy."""
@@ -759,6 +786,8 @@ def connect(sim=None, real_grippers=True, planner_env=None,
         'right': side_config('right', simulation_right),
     })
     controller = FlingBotController(robot)
+    if os.environ.get('GEMSORT_MIRROR_TO_SIM', '0') == '1':
+        controller.attach_shadow(_simulator_shadow(simulation_left, simulation_right))
     grippers = DualGripperManager(
         planner_env,
         simulation_left=simulation_left,

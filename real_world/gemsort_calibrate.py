@@ -142,7 +142,10 @@ def annotate_workspace(frame=None):
     top, bottom, left, right = int(y), int(y + h) - height, int(x), int(x + w) - width
     ws_pc = [top, bottom if bottom < 0 else -1, left, right if right < 0 else -1]
     print(f'WS_PC = {ws_pc}  (crop {w} x {h} px from a {width} x {height} frame)')
-    save(dict(ws_pc=ws_pc, ws_pc_image_size=[width, height]))
+    # Record which camera this crop belongs to: it is a per-viewpoint quantity, and a crop carried across a
+    # camera swap still produces a valid-looking square image of the wrong part of the scene.
+    camera_serial = str(load().get('camera', {}).get('serial') or '')
+    save(dict(ws_pc=ws_pc, ws_pc_image_size=[width, height], ws_pc_camera=camera_serial))
     return ws_pc
 
 
@@ -203,7 +206,9 @@ def capture_background():
     finally:
         if hasattr(camera, 'close'):
             camera.close()
-    np.savez_compressed(BACKGROUND_FILE, rgb=rgb, depth=depth)
+    # Stamp the camera it came from: the reference is only valid for that viewpoint.
+    serial = str(load().get('camera', {}).get('serial') or '')
+    np.savez_compressed(BACKGROUND_FILE, rgb=rgb, depth=depth, camera_serial=serial)
     print(f'wrote empty-table RGB-D reference {BACKGROUND_FILE} ({rgb.shape[1]}x{rgb.shape[0]})')
     return BACKGROUND_FILE
 

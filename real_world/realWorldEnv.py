@@ -128,16 +128,65 @@ class RealWorldEnv(SimEnv):
         # The UR5 implementation loaded fixed text files here. Bernoulli's
         # camera is wrist-mounted, so derive its world pose from current robot
         # kinematics and the measured D435 hand-eye transform.
-        # Stage the cell before anything else looks at it. The arms normally sit in the hanging rest pose, from
+        # Stage the cell before anything else looks at it. Still needed with a fixed camera: the arms have to be
+        # over the table to grasp, even though they no longer have to move to see.
+        # The arms normally sit in the hanging rest pose, from
         # which no Cartesian move across the table is plannable -- so the run has to bring them over the table
         # first, or every grasp comes back as "unreachable" for reasons that have nothing to do with the grasp.
         if os.environ.get('GEMSORT_ROBOTS', '1') == '1':
             self.ur5_pair.prepare_cell()
 
-        camera_world = self.ur5_pair.camera_world_transform()
+        camera_world = self._camera_world_transform()
         self.top_cam_right_ur5_pose = camera_world
         self.top_cam_left_ur5_pose = camera_world
         self.cam_depth_scale = 1.0  # GemsortRealSense already returns metres.
+
+    def _camera_world_transform(self):
+        """World-from-camera for whichever camera is configured.
+
+        A cage-mounted camera is bolted to the frame: its pose is a stored constant, nothing has to move to observe
+        with it, and the reconstruction no longer depends on the arm actually being at the taught pose. The wrist
+        camera's pose is a function of where Bernoulli is standing, so it comes from kinematics instead.
+
+        Selection is by serial: point "camera".serial at the calibrated cage camera and the static path is used.
+        """
+        from real_world.gemsort_calibrate import load
+        calibration = load()
+        cage = calibration.get('cage_camera') or {}
+        configured = str(calibration.get('camera', {}).get('serial') or '')
+        transform = cage.get('world_from_camera')
+        if transform and configured and configured == str(cage.get('serial') or ''):
+            self.static_camera = True
+            residual = (cage.get('residuals') or {}).get('cage') or {}
+            print(f'[gemsort] cage-mounted camera {configured}: pose is a stored constant '
+                  f'({residual.get("translation_rmse_mm", float("nan")):.2f} mm calibration rmse); '
+                  f'no observation move needed.')
+            self._warn_if_calibration_is_for_another_camera(calibration, configured)
+            return np.asarray(transform, float)
+        self.static_camera = False
+        if cage.get('world_from_camera'):
+            print(f'[gemsort] a cage camera is calibrated ({cage.get("serial")}) but the configured camera is '
+                  f'{configured or "unset"}; using wrist kinematics. Set "camera".serial to switch.')
+        return self.ur5_pair.camera_world_transform()
+
+    @staticmethod
+    def _warn_if_calibration_is_for_another_camera(calibration, configured):
+        """The workspace crop and the empty-table reference are per-viewpoint and do not survive a camera swap.
+
+        Both are the kind of thing that keeps working just well enough to look right: the crop still produces a
+        square image and the background still subtracts to something, they are simply of the wrong scene.
+        """
+        # The empty-table reference only matters to the rgbd_background segmenter; yoloe never reads it, so do
+        # not send the operator to recapture something this run will not open.
+        uses_background = os.environ.get('GEMSORT_SEGMENTER', 'rgbd_background').strip().lower() != 'yoloe'
+        also = ' and "Capture empty table"' if uses_background else ''
+        annotated_with = str(calibration.get('ws_pc_camera') or '')
+        if annotated_with and annotated_with != configured:
+            print(f'[gemsort] WARNING: the workspace crop was annotated with camera {annotated_with}, but '
+                  f'{configured} is now configured. Re-run "Annotate live workspace"{also}.')
+        elif not annotated_with:
+            print('[gemsort] NOTE: the stored workspace crop predates camera tracking, so it may belong to a '
+                  'different viewpoint. If the mask looks wrong, re-annotate the workspace.')
 
     def _ensure_observing(self):
         """Put Bernoulli back on the taught observation pose before any frame is grabbed.
@@ -146,6 +195,8 @@ class RealWorldEnv(SimEnv):
         workspace crop is calibrated for that same viewpoint, so a frame taken from anywhere else reconstructs to
         the wrong place. Cheap when already there: go_to_observation() short-circuits without planning.
         """
+        if getattr(self, 'static_camera', False):
+            return      # bolted to the frame: it already sees the table
         if os.environ.get('GEMSORT_ROBOTS', '1') == '1':
             self.ur5_pair.go_to_observation()
 

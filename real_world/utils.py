@@ -54,14 +54,33 @@ def _workspace_only(mask):
     return mask
 
 
+def _configured_camera_serial():
+    import json
+    try:
+        return str(json.loads(BACKGROUND_FILE.with_name('gemsort_calibration.json').read_text())
+                   .get('camera', {}).get('serial') or '')
+    except Exception:
+        return ''
+
+
 def _background_mask(rgb, depth):
     global _BACKGROUND
+    # The empty-table reference is per-viewpoint. Both cameras on this cell are 1280x720, so a background captured
+    # with one and used against the other subtracts perfectly cleanly and is simply of the wrong scene -- the
+    # shape check below cannot see it. Refuse on a serial mismatch instead of silently segmenting nonsense.
+    configured = _configured_camera_serial()
     if _BACKGROUND is None:
         if not BACKGROUND_FILE.exists():
             return None
         with np.load(BACKGROUND_FILE) as data:
-            _BACKGROUND = (data['rgb'], data['depth'])
-    bg_rgb, bg_depth = _BACKGROUND
+            captured_with = str(data['camera_serial']) if 'camera_serial' in data else ''
+            _BACKGROUND = (data['rgb'], data['depth'], captured_with)
+    bg_rgb, bg_depth, captured_with = _BACKGROUND
+    if configured and captured_with != configured:
+        which = f'camera {captured_with}' if captured_with else 'an unrecorded camera (it predates the stamp)'
+        raise ValueError(f'the empty-table reference was captured with {which} but {configured} is configured, so '
+                         f'it is a picture of a different viewpoint. Recapture it with "Capture empty table", or '
+                         f'use the yoloe segmenter, which does not read it at all.')
     if bg_rgb.shape != rgb.shape or bg_depth.shape != depth.shape:
         raise ValueError(f'empty-table reference is {bg_rgb.shape[:2]}, current frame is {rgb.shape[:2]}; '
                          'capture the background again')

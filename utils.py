@@ -1,8 +1,6 @@
 from argparse import ArgumentParser
-from environment import SimEnv, TaskLoader
 from learning.nets import MaximumValuePolicy
 from learning.utils import GraspDataset
-from environment.utils import plot_before_after
 from torch.utils.data import DataLoader
 from filelock import FileLock
 from time import time
@@ -142,6 +140,9 @@ def setup_network(args):
 
 
 def setup_envs(dataset, num_processes=16, **kwargs):
+    # Simulation-only: importing environment eagerly also imports PyFlex,
+    # which the real-world policy runner does not use.
+    from environment import SimEnv, TaskLoader
     task_loader = ray.remote(TaskLoader).remote(
         hdf5_path=kwargs['tasks'],
         repeat=not kwargs['eval'])
@@ -378,6 +379,7 @@ def collect_stats(dataset_path, num_points=128,
             key = random.choice(keys)
             group = dataset.get(key)
             try:
+                from environment.utils import plot_before_after
                 retval.update({
                     'img_before_after':
                     np.swapaxes(np.swapaxes(

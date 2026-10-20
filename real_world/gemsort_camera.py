@@ -13,13 +13,18 @@ Which camera is used is stored in real_world/gemsort_calibration.json ("camera":
 """
 import numpy as np
 
-DEFAULT = dict(type='realsense_local', serial=None, width=1280, height=720, fps=30, align=True)
+DEFAULT = dict(type='realsense_local', serial=None,
+               width=1280, height=720,
+               depth_width=1280, depth_height=720,
+               fps=30, align=True)
 
 
 class GemsortRealSense:
     """Wrist RealSense on Bernoulli, read directly over USB (pyrealsense2), depth aligned to colour."""
 
-    def __init__(self, serial=None, width=1280, height=720, fps=30, align=True, warmup=15):
+    def __init__(self, serial=None, width=1280, height=720,
+                 depth_width=1280, depth_height=720,
+                 fps=30, align=True, warmup=15):
         import pyrealsense2 as rs
         self.rs = rs
         self.pipeline = rs.pipeline()
@@ -27,7 +32,9 @@ class GemsortRealSense:
         if serial:
             config.enable_device(str(serial))
         config.enable_stream(rs.stream.color, width, height, rs.format.rgb8, fps)
-        config.enable_stream(rs.stream.depth, width, height, rs.format.z16, fps)
+        # Keep depth dimensions explicit so higher-resolution colour modes can
+        # still be tested without requesting an unsupported depth profile.
+        config.enable_stream(rs.stream.depth, depth_width, depth_height, rs.format.z16, fps)
         self.profile = self.pipeline.start(config)
         self.align = rs.align(rs.stream.color) if align else None
         self.scale = self.profile.get_device().first_depth_sensor().get_depth_scale()
@@ -66,6 +73,8 @@ def make_camera(config=None):
     kind = config.get('type', 'realsense_local')
     if kind == 'realsense_local':
         return GemsortRealSense(serial=config.get('serial'), width=config['width'], height=config['height'],
+                                depth_width=config.get('depth_width', 1280),
+                                depth_height=config.get('depth_height', 720),
                                 fps=config['fps'], align=config.get('align', True))
     if kind == 'kinect':
         from real_world.kinect import KinectClient
