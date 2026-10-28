@@ -355,7 +355,7 @@ class RealWorldEnv(SimEnv):
         """
         from gemsort_lib.flingbot_config import (PRE_GRASP_HEIGHT, GRIPPER_OFFSET, LIFT_HEIGHT, TILT_ANGLE,
                                                  STRETCH_FACTOR, TABLE_CENTER_X, TABLE_CENTER_Y,
-                                                 FLING_FWD, FLING_BACK)
+                                                 FLING_FWD, FLING_BACK, FLING_STRETCH_OFFSET_Y)
         from gemsort_lib.flingbot_utils import calculate_tilted_quats, scipy_to_mujoco_quat
         from scipy.spatial.transform import Rotation
 
@@ -386,12 +386,15 @@ class RealWorldEnv(SimEnv):
                                    label='lift'):
             return
 
-        # Stretch and centre the garment over the table before flinging, so the fling always starts from the same
-        # place regardless of where on the table the grasp happened to be.
+        # Stretch the garment over the table before flinging, so the fling always starts from the same place
+        # regardless of where on the table the grasp happened to be. Shifted FLING_STRETCH_OFFSET_Y toward the fling
+        # direction: from the table centre the snap-back runs Pascal's carriage into its y limit and the fling does
+        # not plan (2 of 18 grasp placements in dry run, 18 of 18 with the offset).
         stretched = float(np.linalg.norm(left - right)) * (1.0 + STRETCH_FACTOR)
         z_target = float(left[2]) + LIFT_HEIGHT
-        align_l = np.array([TABLE_CENTER_X + stretched / 2.0, TABLE_CENTER_Y, z_target])
-        align_r = np.array([TABLE_CENTER_X - stretched / 2.0, TABLE_CENTER_Y, z_target])
+        y = TABLE_CENTER_Y + FLING_STRETCH_OFFSET_Y
+        align_l = np.array([TABLE_CENTER_X + stretched / 2.0, y, z_target])
+        align_r = np.array([TABLE_CENTER_X - stretched / 2.0, y, z_target])
         delta = align_r - align_l
         yaw = np.degrees(np.arctan2(delta[1], delta[0]))
         q_align = scipy_to_mujoco_quat((Rotation.from_euler('z', yaw, degrees=True)
